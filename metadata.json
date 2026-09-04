@@ -1,0 +1,6 @@
+{
+  "name": "RossyBraids — Luxury Hair & Beauty Advertisement",
+  "description": "World-class luxury commercial advertisement flyer and digital marketing showcase for RossyBraids hairstyling and hair-care brand.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
