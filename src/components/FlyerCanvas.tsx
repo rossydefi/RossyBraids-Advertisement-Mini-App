@@ -2,7 +2,18 @@ import React from 'react';
 import { BRAND_DATA, IMAGES, SERVICES_DATA } from '../data/flyerData';
 import { FlyerFormat, FlyerTheme, ServiceItem } from '../types';
 import { RossyLogo } from './RossyLogo';
-import { Phone, Instagram, Facebook, Sparkles, CheckCircle2, Award, Calendar, ArrowRight } from 'lucide-react';
+import { ScanToBookQR } from './ScanToBookQR';
+import { TestimonialCarousel } from './TestimonialCarousel';
+import {
+  Phone,
+  Instagram,
+  Facebook,
+  Sparkles,
+  CheckCircle2,
+  Award,
+  Calendar,
+  ArrowRight,
+} from 'lucide-react';
 
 interface FlyerCanvasProps {
   format: FlyerFormat;
@@ -30,7 +41,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
       bg: 'bg-gradient-to-b from-[#FAF7F2] via-[#F5EFEB] to-[#ECE2D8]',
       cardBg: 'bg-white/85 backdrop-blur-sm',
       cardBorder: 'border-[#DFCEBC]',
-      heroFrameBorder: 'border-[#D4AF37]/50',
+      heroFrameBorder: 'border-[#D4AF37]/60',
       textPrimary: 'text-[#2D1B11]',
       textSecondary: 'text-[#6C4A32]',
       accentGold: 'text-[#AA7C11]',
@@ -42,7 +53,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
       bg: 'bg-gradient-to-b from-[#2A1810] via-[#382015] to-[#1E110A]',
       cardBg: 'bg-[#3D2314]/85 backdrop-blur-sm',
       cardBorder: 'border-[#AA7C11]/30',
-      heroFrameBorder: 'border-[#D4AF37]/70',
+      heroFrameBorder: 'border-[#D4AF37]/80',
       textPrimary: 'text-[#FDFBF7]',
       textSecondary: 'text-[#DFCEBC]',
       accentGold: 'text-[#E6CA65]',
@@ -54,7 +65,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
       bg: 'bg-gradient-to-b from-[#FFFFFF] via-[#FAF6F0] to-[#F2EAE0]',
       cardBg: 'bg-white/95 backdrop-blur-sm shadow-sm',
       cardBorder: 'border-[#E2D4C5]',
-      heroFrameBorder: 'border-[#C59B27]/60',
+      heroFrameBorder: 'border-[#C59B27]/70',
       textPrimary: 'text-[#2A1810]',
       textSecondary: 'text-[#5C3A21]',
       accentGold: 'text-[#996515]',
@@ -87,7 +98,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
       <div className="absolute bottom-2.5 left-2.5 md:bottom-4 md:left-4 w-3.5 h-3.5 border-b-2 border-l-2 border-[#D4AF37] pointer-events-none z-20" />
       <div className="absolute bottom-2.5 right-2.5 md:bottom-4 md:right-4 w-3.5 h-3.5 border-b-2 border-r-2 border-[#D4AF37] pointer-events-none z-20" />
 
-      {/* Subtle Background Pattern Accent */}
+      {/* Subtle Luxury Pattern Accent */}
       <div
         className="absolute inset-0 opacity-[0.035] pointer-events-none z-0"
         style={{
@@ -104,7 +115,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
         <div className="flex items-center justify-center gap-3 mb-2">
           <div className="h-[1px] w-10 md:w-16 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
           <span className="text-[#D4AF37] text-[10px] tracking-[0.3em] uppercase font-sans-modern font-semibold flex items-center gap-1.5">
-            <Sparkles className="w-2.5 h-2.5" /> Haute Coiffure & Beauty
+            <Sparkles className="w-2.5 h-2.5" /> Haute Coiffure & Luxury Hair
           </span>
           <div className="h-[1px] w-10 md:w-16 bg-gradient-to-r from-transparent via-[#D4AF37] to-transparent" />
         </div>
@@ -131,89 +142,88 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
       </header>
 
       {/* ========================================================================= */}
-      {/* 2. MAIN VISUAL COLLAGE & SHOWCASE                                         */}
+      {/* 2. MAIN VISUAL COLLAGE: BONE-STRAIGHT HERO + 4 COLLAGE TILES              */}
       {/* ========================================================================= */}
       <main className="relative z-10 px-4 md:px-7 py-2 md:py-3 flex-1 flex flex-col justify-center gap-3">
-        {/* LAYOUT A: When format is Portrait or Story */}
         <div className="grid grid-cols-12 gap-2.5 md:gap-3.5 items-stretch">
-          {/* HERO IMAGE: Boho Braids (Focal Point) */}
+          {/* HERO FOCAL POINT: Very Attractive Bone-Straight Wig */}
           <div
             className={`col-span-12 ${
               format === 'square' ? 'sm:col-span-5' : 'sm:col-span-6 md:col-span-5'
             } relative group cursor-pointer overflow-hidden rounded-md border ${
               themeStyles.heroFrameBorder
-            } shadow-md`}
+            } shadow-lg`}
             onClick={() => onSelectService && onSelectService(SERVICES_DATA[0])}
-            title="Click to view Boho Braids styling details"
+            title="Click to view Bone-Straight Wigs & Revamping"
           >
-            <div className="relative w-full h-full min-h-[190px] sm:min-h-[260px] overflow-hidden bg-[#2D1B11]">
+            <div className="relative w-full h-full min-h-[220px] sm:min-h-[290px] overflow-hidden bg-[#2D1B11]">
               <img
-                src={IMAGES.heroBoho}
-                alt="RossyBraids Signature Boho Braids with Loose Curls"
+                src={IMAGES.heroBoneStraight}
+                alt="RossyBraids Featured Style: Ultra-Luxury Shorter Bone-Straight Hair with liquid-glass shine"
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
+                className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent pointer-events-none" />
 
               {/* Gold Ribbon Badge */}
-              <div className="absolute top-2.5 left-2.5">
-                <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] uppercase font-sans-modern font-bold px-2 py-0.5 rounded-full bg-[#D4AF37] text-[#2A1810] shadow-sm tracking-wider">
-                  <Award className="w-2.5 h-2.5" /> Signature Craft
+              <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 text-[9px] md:text-[10px] uppercase font-sans-modern font-bold px-2 py-0.5 rounded-full bg-[#D4AF37] text-[#2A1810] shadow-md tracking-wider">
+                  <Award className="w-2.5 h-2.5" /> Featured Style
                 </span>
               </div>
 
-              {/* Title Overlay */}
+              {/* Title & Craftsmanship Overlay */}
               <div className="absolute bottom-2.5 left-3 right-3 text-white">
-                <p className="font-sans-modern text-[10px] tracking-widest uppercase text-[#F5E6A3] font-semibold">
-                  Featured Style
+                <p className="font-sans-modern text-[9.5px] tracking-widest uppercase text-[#F5E6A3] font-semibold flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" /> Wigs & Revamping
                 </p>
-                <h3 className="font-serif-luxury text-lg md:text-xl font-bold leading-tight drop-shadow-sm">
-                  Boho Braids
+                <h3 className="font-serif-luxury text-xl md:text-2xl font-bold leading-tight drop-shadow-md text-[#FFFDF8]">
+                  Bone-Straight Hair
                 </h3>
                 <p className="text-[10px] md:text-[11px] text-[#DFCEBC] font-sans-modern line-clamp-1">
-                  Neat, stylish & feminine with elegant loose curls
+                  Shorter blunt collarbone cut, liquid-glass shine & couture thermal press
                 </p>
               </div>
             </div>
           </div>
 
-          {/* SECONDARY GALLERY COLLAGE (4 Tiles: Bone-Straight Wig, Dreadlocks, Twists, Products) */}
+          {/* SECONDARY GALLERY COLLAGE (4 Real Diverse Models & Products) */}
           <div
             className={`col-span-12 ${
               format === 'square' ? 'sm:col-span-7' : 'sm:col-span-6 md:col-span-7'
             } grid grid-cols-2 gap-2 md:gap-2.5`}
           >
-            {/* Tile 1: Wigs & Revamping (Medium-length Bone-Straight Wig) */}
+            {/* Tile 1: Boho Braids (Deep Chocolate Complexion, Mocha Halter) */}
             <div
               className={`relative group cursor-pointer overflow-hidden rounded-md border ${themeStyles.cardBorder} ${themeStyles.cardBg} transition-all duration-300 hover:border-[#D4AF37] hover:shadow-md`}
               onClick={() => onSelectService && onSelectService(SERVICES_DATA[1])}
-              title="Click to view Wigs & Revamping"
+              title="Click to view Boho Braids"
             >
               <div className="aspect-[4/3] w-full overflow-hidden relative bg-[#1E110A]">
                 <img
-                  src={IMAGES.boneStraight}
-                  alt="Medium-length bone-straight sleek wig"
+                  src={IMAGES.bohoBraids}
+                  alt="Neat Boho braids with soft curly strands on stunning deep chocolate complexion model"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
                 <span className="absolute bottom-1.5 left-2 text-[9px] uppercase font-sans-modern font-semibold px-1.5 py-0.5 rounded bg-black/60 text-[#F5E6A3] backdrop-blur-xs">
-                  Bone-Straight
+                  Loose Curls
                 </span>
               </div>
               <div className="p-1.5 md:p-2">
                 <h4
                   className={`font-serif-luxury font-bold text-xs md:text-sm leading-snug ${themeStyles.textPrimary}`}
                 >
-                  Wigs & Revamping
+                  Boho Braids
                 </h4>
                 <p className="text-[9px] md:text-[10px] text-[#8C6D53] dark:text-[#C4AC90] line-clamp-1">
-                  Sleek, silky & flawless finish
+                  Neat, stylish & feminine curls
                 </p>
               </div>
             </div>
 
-            {/* Tile 2: Dreadlocks */}
+            {/* Tile 2: Dreadlocks (Warm Chestnut Skin, Chic Minimalist Olive Top) */}
             <div
               className={`relative group cursor-pointer overflow-hidden rounded-md border ${themeStyles.cardBorder} ${themeStyles.cardBg} transition-all duration-300 hover:border-[#D4AF37] hover:shadow-md`}
               onClick={() => onSelectService && onSelectService(SERVICES_DATA[2])}
@@ -222,7 +232,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
               <div className="aspect-[4/3] w-full overflow-hidden relative bg-[#1E110A]">
                 <img
                   src={IMAGES.dreadlocks}
-                  alt="Neat, professionally installed dreadlocks"
+                  alt="Immaculate professionally installed dreadlocks with gold cuffs on warm chestnut skin"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
@@ -243,7 +253,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
               </div>
             </div>
 
-            {/* Tile 3: Natural Hairstyling (Fluffy Twists) */}
+            {/* Tile 3: Natural Hairstyling (Glowing Espresso Skin, Light-Peach Dress) */}
             <div
               className={`relative group cursor-pointer overflow-hidden rounded-md border ${themeStyles.cardBorder} ${themeStyles.cardBg} transition-all duration-300 hover:border-[#D4AF37] hover:shadow-md`}
               onClick={() => onSelectService && onSelectService(SERVICES_DATA[3])}
@@ -252,7 +262,7 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
               <div className="aspect-[4/3] w-full overflow-hidden relative bg-[#1E110A]">
                 <img
                   src={IMAGES.fluffyTwists}
-                  alt="Fluffy healthy natural-hair twists"
+                  alt="Fluffy, healthy natural-hair twists on radiant model wearing an understated light-peach off-shoulder dress"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
@@ -273,32 +283,35 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
               </div>
             </div>
 
-            {/* Tile 4: Hair Treatment & Products */}
+            {/* Tile 4: Other African Hairstyles (Didi, Threading, Shuku) */}
             <div
               className={`relative group cursor-pointer overflow-hidden rounded-md border ${themeStyles.cardBorder} ${themeStyles.cardBg} transition-all duration-300 hover:border-[#D4AF37] hover:shadow-md`}
-              onClick={() => onSelectService && onSelectService(SERVICES_DATA[4])}
-              title="Click to view Products & Accessories"
+              onClick={() => {
+                const s = SERVICES_DATA.find((item) => item.id === 'african-traditional');
+                if (s && onSelectService) onSelectService(s);
+              }}
+              title="Click to view Other African Hairstyles (Didi, Threading, etc.)"
             >
               <div className="aspect-[4/3] w-full overflow-hidden relative bg-[#1E110A]">
                 <img
-                  src={IMAGES.products}
-                  alt="Premium hair-care products and accessories"
+                  src={IMAGES.africanTraditional}
+                  alt="African traditional hairstyle showcasing precision two-hand Didi weaving and hair threading"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent pointer-events-none" />
                 <span className="absolute bottom-1.5 left-2 text-[9px] uppercase font-sans-modern font-semibold px-1.5 py-0.5 rounded bg-black/60 text-[#F5E6A3] backdrop-blur-xs">
-                  Essentials
+                  Heritage Craft
                 </span>
               </div>
               <div className="p-1.5 md:p-2">
                 <h4
                   className={`font-serif-luxury font-bold text-xs md:text-sm leading-snug ${themeStyles.textPrimary}`}
                 >
-                  Products & Accessories
+                  African Hairstyles
                 </h4>
                 <p className="text-[9px] md:text-[10px] text-[#8C6D53] dark:text-[#C4AC90] line-clamp-1">
-                  Shampoos, creams & scrunchies
+                  Threading, Didi, Shuku & Knots
                 </p>
               </div>
             </div>
@@ -317,20 +330,30 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
               <h4
                 className={`font-cinzel text-xs md:text-sm font-semibold tracking-wider uppercase ${themeStyles.textPrimary}`}
               >
-                Our Premium Services
+                Our Premium Services & Home Care
               </h4>
             </div>
             <span className="text-[9px] md:text-[10px] uppercase font-sans-modern font-semibold text-[#D4AF37] tracking-wider">
-              Appointments & Orders Open
+              Salon & VIP Home Service
             </span>
           </div>
 
-          {/* 5 Distinct Service Badges */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5">
-            {BRAND_DATA.services.map((service, index) => (
+          {/* Distinct Service Badges */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-1.5">
+            {BRAND_DATA.services.map((service) => (
               <div
                 key={service}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-[#D4AF37]/10 border border-[#D4AF37]/25 text-left transition-colors hover:bg-[#D4AF37]/20 cursor-default"
+                onClick={() => {
+                  if (onSelectService) {
+                    if (service.includes('Wigs')) onSelectService(SERVICES_DATA.find(s => s.id === 'wigs-revamping')!);
+                    else if (service.includes('Boho')) onSelectService(SERVICES_DATA.find(s => s.id === 'boho-braids')!);
+                    else if (service.includes('Dreadlocks')) onSelectService(SERVICES_DATA.find(s => s.id === 'dreadlocks')!);
+                    else if (service.includes('Natural')) onSelectService(SERVICES_DATA.find(s => s.id === 'natural-hairstyling')!);
+                    else if (service.includes('African')) onSelectService(SERVICES_DATA.find(s => s.id === 'african-traditional')!);
+                    else if (service.includes('Products')) onSelectService(SERVICES_DATA.find(s => s.id === 'hair-treatment-products')!);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded bg-[#D4AF37]/10 border border-[#D4AF37]/25 text-left transition-colors hover:bg-[#D4AF37]/20 cursor-pointer"
               >
                 <CheckCircle2 className="w-3 h-3 text-[#D4AF37] shrink-0" />
                 <span
@@ -342,25 +365,32 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
             ))}
           </div>
 
-          {/* Specific Products & Accessories Sub-Bar */}
+          {/* Products & Accessories Highlight */}
           <div className="mt-2 pt-2 border-t border-[#D4AF37]/20 flex flex-wrap items-center justify-between gap-1.5 text-[9px] md:text-[10px]">
             <span className={`font-semibold ${themeStyles.accentGold}`}>
               HAIR-CARE ESSENTIALS AVAILABLE:
             </span>
             <span className={`font-sans-modern ${themeStyles.textSecondary}`}>
-              Shampoo • Conditioner • Hair Creams • Satin Scrunchies • Luxury Accessories
+              Shampoo • Bone-Straight Serum • Hair Creams • Multi-Color Satin Scrunchies • Gold Hair Cuffs
             </span>
           </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* 4. VERIFIED CLIENT TESTIMONIALS CAROUSEL (BUILD TRUST)                   */}
+        {/* ========================================================================= */}
+        <TestimonialCarousel theme={theme} className="w-full" />
       </main>
 
       {/* ========================================================================= */}
-      {/* 4. CONTACT & SOCIAL MEDIA INFORMATION (HIGHLY VISIBLE, EXACT)             */}
+      {/* 5. CONTACT BAR WITH INTEGRATED 'SCAN TO BOOK' QR CODE IN CORNER           */}
       {/* ========================================================================= */}
       <footer className="relative z-10 px-3 md:px-5 pb-3 md:pb-4 pt-1">
-        <div className={`rounded-md p-3 md:p-4 shadow-lg border border-[#D4AF37]/35 ${themeStyles.contactBarBg}`}>
+        <div
+          className={`rounded-md p-3 md:p-3.5 shadow-xl border border-[#D4AF37]/35 ${themeStyles.contactBarBg}`}
+        >
           {/* Booking Callout */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pb-2.5 mb-2.5 border-b border-white/10">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pb-2 mb-2 border-b border-white/10">
             <div className="text-center sm:text-left">
               <span className="text-[9px] uppercase tracking-[0.25em] text-[#D4AF37] font-semibold font-sans-modern">
                 Direct Booking & Inquiries
@@ -379,67 +409,80 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
             </a>
           </div>
 
-          {/* Contact Details Grid: WhatsApp, Facebook, Instagram */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-            {/* WhatsApp */}
-            <a
-              href={`https://wa.me/${BRAND_DATA.whatsappRaw}?text=Hello%20RossyBraids!`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 p-2 rounded bg-white/5 border border-white/10 hover:border-[#D4AF37]/60 hover:bg-white/10 transition-all group"
-            >
-              <div className="w-7 h-7 rounded-full bg-[#25D366]/20 border border-[#25D366]/40 flex items-center justify-center shrink-0">
-                <Phone className="w-3.5 h-3.5 text-[#25D366]" />
-              </div>
-              <div>
-                <span className="text-[9px] uppercase tracking-wider text-[#DFCEBC] block font-semibold">
-                  WhatsApp
-                </span>
-                <span className="font-sans-modern font-bold text-white text-xs md:text-sm tracking-wide group-hover:text-[#D4AF37] transition-colors">
-                  {BRAND_DATA.whatsapp}
-                </span>
-              </div>
-            </a>
+          {/* Bottom Layout: Contact Cards + Corner 'Scan to Book' QR Component */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+            {/* 3 Contact Social Links */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 w-full text-xs">
+              {/* WhatsApp */}
+              <a
+                href={`https://wa.me/${BRAND_DATA.whatsappRaw}?text=Hello%20RossyBraids!`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-2 rounded bg-white/5 border border-white/10 hover:border-[#D4AF37]/60 hover:bg-white/10 transition-all group"
+              >
+                <div className="w-7 h-7 rounded-full bg-[#25D366]/20 border border-[#25D366]/40 flex items-center justify-center shrink-0">
+                  <Phone className="w-3.5 h-3.5 text-[#25D366]" />
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-wider text-[#DFCEBC] block font-semibold">
+                    WhatsApp
+                  </span>
+                  <span className="font-sans-modern font-bold text-white text-xs tracking-wide group-hover:text-[#D4AF37] transition-colors">
+                    {BRAND_DATA.whatsapp}
+                  </span>
+                </div>
+              </a>
 
-            {/* Instagram */}
-            <a
-              href="https://instagram.com/rossy.braids"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 p-2 rounded bg-white/5 border border-white/10 hover:border-[#D4AF37]/60 hover:bg-white/10 transition-all group"
-            >
-              <div className="w-7 h-7 rounded-full bg-[#E1306C]/20 border border-[#E1306C]/40 flex items-center justify-center shrink-0">
-                <Instagram className="w-3.5 h-3.5 text-[#E1306C]" />
-              </div>
-              <div>
-                <span className="text-[9px] uppercase tracking-wider text-[#DFCEBC] block font-semibold">
-                  Instagram
-                </span>
-                <span className="font-sans-modern font-bold text-white text-xs md:text-sm tracking-wide italic group-hover:text-[#D4AF37] transition-colors">
-                  {BRAND_DATA.instagram}
-                </span>
-              </div>
-            </a>
+              {/* Instagram */}
+              <a
+                href="https://instagram.com/rossy.braids"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-2 rounded bg-white/5 border border-white/10 hover:border-[#D4AF37]/60 hover:bg-white/10 transition-all group"
+              >
+                <div className="w-7 h-7 rounded-full bg-[#E1306C]/20 border border-[#E1306C]/40 flex items-center justify-center shrink-0">
+                  <Instagram className="w-3.5 h-3.5 text-[#E1306C]" />
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-wider text-[#DFCEBC] block font-semibold">
+                    Instagram
+                  </span>
+                  <span className="font-sans-modern font-bold text-white text-xs tracking-wide italic group-hover:text-[#D4AF37] transition-colors">
+                    {BRAND_DATA.instagram}
+                  </span>
+                </div>
+              </a>
 
-            {/* Facebook */}
-            <a
-              href="https://www.facebook.com/search/top?q=Rose%20Iyaji"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2.5 p-2 rounded bg-white/5 border border-white/10 hover:border-[#D4AF37]/60 hover:bg-white/10 transition-all group"
-            >
-              <div className="w-7 h-7 rounded-full bg-[#1877F2]/20 border border-[#1877F2]/40 flex items-center justify-center shrink-0">
-                <Facebook className="w-3.5 h-3.5 text-[#1877F2]" />
-              </div>
-              <div>
-                <span className="text-[9px] uppercase tracking-wider text-[#DFCEBC] block font-semibold">
-                  Facebook
-                </span>
-                <span className="font-sans-modern font-bold text-white text-xs md:text-sm tracking-wide group-hover:text-[#D4AF37] transition-colors">
-                  {BRAND_DATA.facebook}
-                </span>
-              </div>
-            </a>
+              {/* Facebook */}
+              <a
+                href="https://www.facebook.com/search/top?q=Rose%20Iyaji"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-2 rounded bg-white/5 border border-white/10 hover:border-[#D4AF37]/60 hover:bg-white/10 transition-all group"
+              >
+                <div className="w-7 h-7 rounded-full bg-[#1877F2]/20 border border-[#1877F2]/40 flex items-center justify-center shrink-0">
+                  <Facebook className="w-3.5 h-3.5 text-[#1877F2]" />
+                </div>
+                <div>
+                  <span className="text-[9px] uppercase tracking-wider text-[#DFCEBC] block font-semibold">
+                    Facebook
+                  </span>
+                  <span className="font-sans-modern font-bold text-white text-xs tracking-wide group-hover:text-[#D4AF37] transition-colors">
+                    {BRAND_DATA.facebook}
+                  </span>
+                </div>
+              </a>
+            </div>
+
+            {/* Corner 'Scan to Book' SVG QR Code Component */}
+            <div className="shrink-0 flex items-center justify-center">
+              <ScanToBookQR
+                url={`https://wa.me/${BRAND_DATA.whatsappRaw}?text=Hello%20RossyBraids%2C%20I%20saw%20your%20flyer%20and%20would%20like%20to%20book%20an%20appointment!`}
+                size={58}
+                variant="glass"
+                className="scale-95 sm:scale-100"
+              />
+            </div>
           </div>
         </div>
       </footer>

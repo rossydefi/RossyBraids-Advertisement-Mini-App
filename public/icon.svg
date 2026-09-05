@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F9E498"/>
+      <stop offset="50%" stop-color="#D4AF37"/>
+      <stop offset="100%" stop-color="#AA771C"/>
+    </linearGradient>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2D1B11"/>
+      <stop offset="100%" stop-color="#140B07"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="22" fill="url(#bgGrad)"/>
+  <rect x="3" y="3" width="94" height="94" rx="20" fill="none" stroke="url(#goldGrad)" stroke-width="2" stroke-opacity="0.6"/>
+  <g transform="translate(18, 15)">
+    <!-- Crown -->
+    <path d="M 12 18 L 18 28 L 32 14 L 46 28 L 52 18 L 48 34 L 16 34 Z" fill="url(#goldGrad)"/>
+    <!-- Intertwined Braids -->
+    <path d="M 24 36 C 18 45, 18 55, 32 64 C 46 55, 46 45, 40 36" fill="none" stroke="url(#goldGrad)" stroke-width="4.5" stroke-linecap="round"/>
+    <path d="M 32 38 C 38 48, 38 58, 24 68 C 10 58, 10 48, 24 38" fill="none" stroke="url(#goldGrad)" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+    <circle cx="32" cy="46" r="3.5" fill="#F9E498"/>
+  </g>
+</svg>

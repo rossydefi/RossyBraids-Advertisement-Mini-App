@@ -6,9 +6,14 @@ import { X, Check, Calendar, Phone, Sparkles } from 'lucide-react';
 interface ServiceDetailModalProps {
   service: ServiceItem | null;
   onClose: () => void;
+  onBookOnline?: (serviceId: string) => void;
 }
 
-export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ service, onClose }) => {
+export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
+  service,
+  onClose,
+  onBookOnline,
+}) => {
   if (!service) return null;
 
   const whatsappMessage = encodeURIComponent(
@@ -73,19 +78,30 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({ service,
 
           {/* Direct CTA */}
           <div className="pt-3 border-t border-[#DFCEBC] flex flex-col sm:flex-row gap-2.5">
+            {onBookOnline && (
+              <button
+                onClick={() => {
+                  onBookOnline(service.id);
+                  onClose();
+                }}
+                className="flex-1 py-2.5 px-4 rounded bg-[#2D1B11] text-[#F9E498] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 hover:bg-[#442718] transition-all cursor-pointer"
+              >
+                <Calendar className="w-4 h-4 text-[#D4AF37]" /> Book Appointment Online
+              </button>
+            )}
             <a
               href={`https://wa.me/${BRAND_DATA.whatsappRaw}?text=${whatsappMessage}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 py-2.5 px-4 rounded bg-gradient-to-r from-[#D4AF37] via-[#C59B27] to-[#AA7C11] text-[#1E110A] font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:brightness-110 active:scale-98 transition-all"
             >
-              <Phone className="w-4 h-4" /> Book This Service on WhatsApp
+              <Phone className="w-4 h-4" /> WhatsApp Inquiry
             </a>
             <button
               onClick={onClose}
-              className="py-2.5 px-4 rounded border border-[#DFCEBC] text-xs font-semibold text-[#6C4A32] hover:bg-black/5 transition-colors"
+              className="py-2.5 px-3 rounded border border-[#DFCEBC] text-xs font-semibold text-[#6C4A32] hover:bg-black/5 transition-colors cursor-pointer"
             >
-              Back to Flyer
+              Close
             </button>
           </div>
         </div>
