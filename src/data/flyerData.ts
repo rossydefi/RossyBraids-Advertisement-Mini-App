@@ -33,6 +33,8 @@ export const BRAND_DATA: BrandInfo = {
   whatsappRaw: '2348137989405',
   facebook: 'Rose Iyaji',
   instagram: 'rossy.braids',
+  website: 'https://rossybraids.com',
+  domain: 'rossybraids.com',
   services: [
     'Wigs & Revamping',
     'Boho Braids',

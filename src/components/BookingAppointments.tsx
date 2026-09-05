@@ -964,7 +964,7 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
                         `As promised, you've unlocked your exclusive 25% discount code for RossyBraids' most expensive luxury wig (${earnedReferralReward.mostExpensiveWig.name}):\n\n` +
                         `🎟️ Your Code: ${earnedReferralReward.referrerReward.code}\n` +
                         `⏳ Strict Expiry: Valid for 72 hours (3 days) only!\n\n` +
-                        `Check out the salon & boutique here: ${window.location.origin}`
+                        `Check out the salon & boutique here: https://rossybraids.com`
                     );
                     window.open(`https://wa.me/?text=${notifyMsg}`, '_blank');
                   }}

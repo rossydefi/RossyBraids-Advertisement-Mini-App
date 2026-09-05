@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Gift,
   Crown,
+  Globe,
 } from 'lucide-react';
 
 export default function App() {
@@ -398,9 +399,24 @@ export default function App() {
       </nav>
 
       {/* Footer (No-print) */}
-      <footer className="no-print border-t border-[#D4AF37]/15 bg-[#0F0804] py-4 px-4 text-center text-xs text-[#DFCEBC]/70">
-        <p className="font-sans-modern">
-          © {new Date().getFullYear()} <span className="text-[#D4AF37] font-semibold">RossyBraids</span>. All rights reserved. Where Beauty Meets Craft.
+      <footer className="no-print border-t border-[#D4AF37]/15 bg-[#0F0804] py-5 px-4 text-center text-xs text-[#DFCEBC]/70 space-y-2">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
+          <a
+            href={BRAND_DATA.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#F5E6A3] hover:text-[#D4AF37] font-semibold transition-colors flex items-center gap-1.5"
+          >
+            <Globe className="w-3.5 h-3.5 text-[#D4AF37]" />
+            <span>{BRAND_DATA.domain}</span>
+          </a>
+          <span className="text-[#DFCEBC]/30">•</span>
+          <span className="text-[#DFCEBC]/80">WhatsApp: {BRAND_DATA.whatsapp}</span>
+          <span className="text-[#DFCEBC]/30">•</span>
+          <span className="text-[#DFCEBC]/80">Instagram: @{BRAND_DATA.instagram}</span>
+        </div>
+        <p className="font-sans-modern text-[11px]">
+          © {new Date().getFullYear()} <span className="text-[#D4AF37] font-semibold">{BRAND_DATA.name}</span>. All rights reserved. Where Beauty Meets Craft.
         </p>
       </footer>
 

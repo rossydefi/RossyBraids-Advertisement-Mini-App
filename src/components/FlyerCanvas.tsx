@@ -8,6 +8,7 @@ import {
   Phone,
   Instagram,
   Facebook,
+  Globe,
   Sparkles,
   CheckCircle2,
   Award,
@@ -411,8 +412,8 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
 
           {/* Bottom Layout: Contact Cards + Corner 'Scan to Book' QR Component */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-            {/* 3 Contact Social Links */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 w-full text-xs">
+            {/* 4 Contact & Web Links */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 flex-1 w-full text-xs">
               {/* WhatsApp */}
               <a
                 href={`https://wa.me/${BRAND_DATA.whatsappRaw}?text=Hello%20RossyBraids!`}
@@ -472,12 +473,32 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
                   </span>
                 </div>
               </a>
+
+              {/* Official Website */}
+              <a
+                href={BRAND_DATA.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 p-2 rounded bg-white/5 border border-white/10 hover:border-[#D4AF37]/60 hover:bg-white/10 transition-all group"
+              >
+                <div className="w-7 h-7 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/40 flex items-center justify-center shrink-0">
+                  <Globe className="w-3.5 h-3.5 text-[#D4AF37]" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[9px] uppercase tracking-wider text-[#DFCEBC] block font-semibold">
+                    Website
+                  </span>
+                  <span className="font-sans-modern font-bold text-white text-xs tracking-wide group-hover:text-[#D4AF37] transition-colors truncate block">
+                    {BRAND_DATA.domain}
+                  </span>
+                </div>
+              </a>
             </div>
 
             {/* Corner 'Scan to Book' SVG QR Code Component */}
             <div className="shrink-0 flex items-center justify-center">
               <ScanToBookQR
-                url={`https://wa.me/${BRAND_DATA.whatsappRaw}?text=Hello%20RossyBraids%2C%20I%20saw%20your%20flyer%20and%20would%20like%20to%20book%20an%20appointment!`}
+                url="https://rossybraids.com"
                 size={58}
                 variant="glass"
                 className="scale-95 sm:scale-100"

@@ -38,12 +38,10 @@ export function generateUniqueReferralCode(userName: string): string {
 
 /**
  * Generates full shareable URL with referral parameter
+ * Default production domain is rossybraids.com
  */
 export function getReferralShareUrl(code: string): string {
-  if (typeof window === 'undefined') return `https://rossybraids.app/?ref=${code}`;
-  const origin = window.location.origin;
-  const path = window.location.pathname;
-  return `${origin}${path}?ref=${encodeURIComponent(code)}`;
+  return `https://rossybraids.com/?ref=${encodeURIComponent(code)}`;
 }
 
 /**

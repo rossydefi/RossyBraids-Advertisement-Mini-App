@@ -206,6 +206,8 @@ export interface BrandInfo {
   whatsappRaw: string;
   facebook: string;
   instagram: string;
+  website: string;
+  domain: string;
   services: string[];
 }
 
