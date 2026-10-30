@@ -232,7 +232,11 @@ admin.post('/reminders/:id/send', async (req, res) => {
 const csv = (rows: Record<string, unknown>[]) => {
   if (!rows.length) return '';
   const cols = Object.keys(rows[0]);
-  const cell = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  // Prefix cells that spreadsheets would execute as formulas (=, +, -, @).
+  const cell = (v: unknown) => {
+    const text = String(v ?? '');
+    return `"${(/^[=+\-@]/.test(text) ? "'" + text : text).replace(/"/g, '""')}"`;
+  };
   return [cols.join(','), ...rows.map((r) => cols.map((c) => cell(r[c])).join(','))].join('\n');
 };
 

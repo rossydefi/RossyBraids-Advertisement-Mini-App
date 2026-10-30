@@ -1,5 +1,8 @@
 export type FlyerFormat = 'portrait' | 'square' | 'story';
-export type FlyerTheme = 'nude-luxury' | 'mocha-velvet' | 'warm-ivory';
+export type FlyerTheme = 'nude-luxury' | 'mocha-velvet' | 'warm-ivory' | 'rose-blush' | 'noir-gold';
+
+/** Themes that use light text on a dark background. */
+export const DARK_FLYER_THEMES: FlyerTheme[] = ['mocha-velvet', 'noir-gold'];
 export type ActiveTab = 'home' | 'flyer' | 'booking' | 'shop' | 'gallery' | 'referral';
 
 export interface StyleSubtype {

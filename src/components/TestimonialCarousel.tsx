@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { usePublicReviews } from '../hooks/usePublicReviews';
-import { Testimonial, FlyerTheme } from '../types';
+import { DARK_FLYER_THEMES, Testimonial, FlyerTheme } from '../types';
 import { Star, CheckCircle2, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 
 interface TestimonialCarouselProps {
@@ -43,7 +43,7 @@ export const TestimonialCarousel: React.FC<TestimonialCarouselProps> = ({
     };
   }, [currentIndex, autoPlay, isPaused, interval]);
 
-  const isDark = theme === 'mocha-velvet';
+  const isDark = DARK_FLYER_THEMES.includes(theme);
 
   return (
     <div

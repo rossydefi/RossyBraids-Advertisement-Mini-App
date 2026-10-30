@@ -1,6 +1,6 @@
 import React from 'react';
 import { BRAND_DATA, IMAGES, SERVICES_DATA } from '../data/flyerData';
-import { FlyerFormat, FlyerTheme, ServiceItem } from '../types';
+import { DARK_FLYER_THEMES, FlyerFormat, FlyerTheme, ServiceItem } from '../types';
 import { RossyLogo } from './RossyLogo';
 import { ScanToBookQR } from './ScanToBookQR';
 import { TestimonialCarousel } from './TestimonialCarousel';
@@ -74,9 +74,33 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({
       contactBarBg: 'bg-[#321B10] text-white',
       hairBorder: 'border-[#DFCEBC]',
     },
+    'rose-blush': {
+      bg: 'bg-gradient-to-b from-[#FFF4F2] via-[#FBE6E1] to-[#F4D3CB]',
+      cardBg: 'bg-white/90 backdrop-blur-sm',
+      cardBorder: 'border-[#EBC4BA]',
+      heroFrameBorder: 'border-[#B76E79]/70',
+      textPrimary: 'text-[#3A1F1B]',
+      textSecondary: 'text-[#7A4A43]',
+      accentGold: 'text-[#A8505C]',
+      badgeBg: 'bg-[#7A3B45] text-white',
+      contactBarBg: 'bg-[#3A1F1B] text-[#FBE6E1]',
+      hairBorder: 'border-[#EBC4BA]',
+    },
+    'noir-gold': {
+      bg: 'bg-gradient-to-b from-[#0B0B0B] via-[#151210] to-[#050505]',
+      cardBg: 'bg-[#1B1712]/90 backdrop-blur-sm',
+      cardBorder: 'border-[#D4AF37]/25',
+      heroFrameBorder: 'border-[#D4AF37]/90',
+      textPrimary: 'text-[#FAF6F0]',
+      textSecondary: 'text-[#CDBFA6]',
+      accentGold: 'text-[#E6CA65]',
+      badgeBg: 'bg-[#D4AF37] text-[#0B0B0B]',
+      contactBarBg: 'bg-[#000000] text-[#F5EFEB]',
+      hairBorder: 'border-[#D4AF37]/35',
+    },
   }[theme];
 
-  const isDark = theme === 'mocha-velvet';
+  const isDark = DARK_FLYER_THEMES.includes(theme);
 
   return (
     <div
