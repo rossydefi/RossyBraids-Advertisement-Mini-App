@@ -38,7 +38,10 @@ async function mountFrontend() {
     const dist = path.resolve('dist');
     if (!fs.existsSync(dist)) throw new Error('dist/ not found. Run "npm run build" before "npm start".');
     app.use(express.static(dist, { index: false, maxAge: '1h' }));
-    app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+    // Real pages fall back to the app; missing files (anything with an extension) are a genuine 404.
+    app.get('*', (req, res) =>
+      path.extname(req.path) ? res.sendStatus(404) : res.sendFile(path.join(dist, 'index.html'))
+    );
   } else {
     const { createServer } = await import('vite');
     const vite = await createServer({ server: { middlewareMode: true, hmr: { server } }, appType: 'spa' });
