@@ -1,18 +1,18 @@
-import heroBoneStraightImg from '../assets/images/bone_straight_luxury_short_1788554755785.jpg';
-import heroBoneStraight26Img from '../assets/images/hero_bone_straight_1788551839713.jpg';
-import boneStraightBobImg from '../assets/images/bone_straight_shoulder_len_1788553819098.jpg';
-import bohoBraidsImg from '../assets/images/boho_braids_model_1788551852269.jpg';
-import dreadlocksImg from '../assets/images/dreadlocks_model_1788551865549.jpg';
-import fluffyTwistsImg from '../assets/images/natural_twists_peach_dress_1788553835094.jpg';
-import hairProductsImg from '../assets/images/hair_accessories_scrunchies_1788553849977.jpg';
-import luxuryShampooImg from '../assets/images/luxury_shampoo_bottle_1788558216291.jpg';
-import boneStraightSerumImg from '../assets/images/bone_straight_serum_1788558231714.jpg';
-import haircareCollageImg from '../assets/images/haircare_products_1788549236305.jpg';
-import wigBeforeImg from '../assets/images/wig_before_revamp_1788558082657.jpg';
-import locsBeforeImg from '../assets/images/locs_before_retwist_1788558098393.jpg';
-import braidsBeforeImg from '../assets/images/braids_before_install_1788558113828.jpg';
-import twistsBeforeImg from '../assets/images/twists_before_styling_1788558200716.jpg';
-import africanTraditionalImg from '../assets/images/african_traditional_didi_threading_1788563866107.jpg';
+import heroBoneStraightImg from '../assets/images/bone_straight_luxury_short_1788554755785.webp';
+import heroBoneStraight26Img from '../assets/images/hero_bone_straight_1788551839713.webp';
+import boneStraightBobImg from '../assets/images/bone_straight_shoulder_len_1788553819098.webp';
+import bohoBraidsImg from '../assets/images/boho_braids_model_1788551852269.webp';
+import dreadlocksImg from '../assets/images/dreadlocks_model_1788551865549.webp';
+import fluffyTwistsImg from '../assets/images/natural_twists_peach_dress_1788553835094.webp';
+import hairProductsImg from '../assets/images/hair_accessories_scrunchies_1788553849977.webp';
+import luxuryShampooImg from '../assets/images/luxury_shampoo_bottle_1788558216291.webp';
+import boneStraightSerumImg from '../assets/images/bone_straight_serum_1788558231714.webp';
+import haircareCollageImg from '../assets/images/haircare_products_1788549236305.webp';
+import wigBeforeImg from '../assets/images/wig_before_revamp_1788558082657.webp';
+import locsBeforeImg from '../assets/images/locs_before_retwist_1788558098393.webp';
+import braidsBeforeImg from '../assets/images/braids_before_install_1788558113828.webp';
+import twistsBeforeImg from '../assets/images/twists_before_styling_1788558200716.webp';
+import africanTraditionalImg from '../assets/images/african_traditional_didi_threading_1788563866107.webp';
 
 import {
   AddOnOption,
