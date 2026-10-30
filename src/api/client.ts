@@ -191,6 +191,13 @@ export const api = {
   checkReferral: (code: string) =>
     request<{ valid: boolean; referrerName?: string }>('GET', `/referrals/check?code=${encodeURIComponent(code)}`),
 
+  checkReward: (code: string, phone: string, productIds: string[]) =>
+    request<{ valid: boolean; error?: string; reward?: RewardView; discountAmount?: number }>('POST', '/rewards/check', {
+      code,
+      phone,
+      productIds,
+    }),
+
   reviews: () => request<PublicReview[]>('GET', '/reviews'),
   submitReview: (r: { name: string; location?: string; rating: number; text: string; serviceName?: string; phone?: string }) =>
     request<{ ok: true; message: string }>('POST', '/reviews', r),

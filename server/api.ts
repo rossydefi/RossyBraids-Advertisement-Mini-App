@@ -347,6 +347,27 @@ export async function paystackWebhook(req: express.Request, res: express.Respons
 
 /* --------------------------------------------------------------- referrals */
 
+/** Lets the cart explain a reward code before the order is placed. Same rules as POST /orders. */
+api.post('/rewards/check', rateLimit('reward-check', 30, 10 * 60_000), (req, res) => {
+  const code = str(req.body?.code, 40).toUpperCase();
+  const phone = normalizePhone(req.body?.phone);
+  const productIds: string[] = Array.isArray(req.body?.productIds) ? req.body.productIds : [];
+  const reward = code ? findReward(code) : undefined;
+  const fail = (error: string) => res.json({ valid: false, error });
+  if (!code) return fail('Please enter a discount code.');
+  if (!phone) return fail('Enter your phone number first. Reward codes are tied to the phone number they were issued to.');
+  if (!reward || reward.recipient_phone !== phone) return fail('This code is not valid for this phone number.');
+  if (reward.used_at) return fail('This discount code has already been redeemed.');
+  if (!reward.activated_at) return fail('This reward unlocks once the salon confirms your booking.');
+  if (new Date(reward.expires_at!) < new Date()) return fail('This discount code has expired (codes last 72 hours).');
+  const view = rewardView(reward);
+  if (!productIds.includes(reward.product_id)) {
+    return fail(`This code only applies to ${view.productName} (₦${view.originalPrice.toLocaleString()}). Add it to your cart to redeem.`);
+  }
+  res.json({ valid: true, reward: view, discountAmount: view.discountAmount });
+});
+
+
 api.post('/referrals/profile', rateLimit('referral', 15, 15 * 60_000), (req, res) => {
   const name = str(req.body?.name, 80);
   const phone = normalizePhone(req.body?.phone);
