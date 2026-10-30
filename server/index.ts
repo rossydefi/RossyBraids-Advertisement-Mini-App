@@ -1,6 +1,7 @@
 import 'express-async-errors';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import fs from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 import { admin } from './admin';
 import { api, paystackWebhook } from './api';
@@ -9,6 +10,7 @@ import { startReminderJob } from './reminders';
 import { HttpError } from './util';
 
 const app = express();
+const server = http.createServer(app);
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
@@ -39,7 +41,7 @@ async function mountFrontend() {
     app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
   } else {
     const { createServer } = await import('vite');
-    const vite = await createServer({ server: { middlewareMode: true }, appType: 'spa' });
+    const vite = await createServer({ server: { middlewareMode: true, hmr: { server } }, appType: 'spa' });
     app.use(vite.middlewares);
   }
 }
@@ -54,7 +56,7 @@ app.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
 });
 
 await mountFrontend();
-app.listen(config.port, '0.0.0.0', () => {
+server.listen(config.port, '0.0.0.0', () => {
   console.log(`RossyBraids running at http://localhost:${config.port} (${config.isProd ? 'production' : 'development'})`);
   if (config.usingDefaultAdminPassword) console.warn('Admin password is the default "rossy-admin". Set ADMIN_PASSWORD in .env.');
   startReminderJob();

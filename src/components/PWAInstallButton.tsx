@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
+import { useModalA11y } from '../hooks/useModalA11y';
 import { Download, Share, PlusSquare, Check, X, Smartphone } from 'lucide-react';
 
 export const PWAInstallButton: React.FC = () => {
   const { canInstall, isInstalled, isIOS, installPWA } = usePWAInstall();
   const [showIOSModal, setShowIOSModal] = useState(false);
+  const iosDialogRef = useModalA11y(showIOSModal, () => setShowIOSModal(false));
 
   if (isInstalled) {
     return (
       <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#D4AF37]/15 border border-[#D4AF37]/40 text-[#F5E6A3] text-xs font-sans-modern">
         <Check className="w-3.5 h-3.5 text-[#D4AF37]" />
-        <span className="font-medium">App Installed</span>
+        <span className="font-medium hidden sm:inline">App Installed</span>
       </div>
     );
   }
@@ -28,19 +30,21 @@ export const PWAInstallButton: React.FC = () => {
       <button
         id="btn-install-pwa"
         onClick={handleClick}
-        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#2A1810] font-sans-modern font-semibold text-xs shadow-md hover:brightness-110 active:scale-95 transition-all duration-200 cursor-pointer"
+        className="inline-flex items-center gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#2A1810] font-sans-modern font-semibold text-xs shadow-md hover:brightness-110 active:scale-95 transition-all duration-200 cursor-pointer"
         title="Install RossyBraids mobile app"
+        aria-label="Install RossyBraids app"
       >
-        <Smartphone className="w-3.5 h-3.5" />
-        <span>Install App</span>
+        <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
+        <span className="hidden sm:inline">Install App</span>
       </button>
 
       {/* iOS Installation Instructions Modal */}
       {showIOSModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-md bg-[#1C130D] border border-[#D4AF37]/40 rounded-xl p-5 shadow-2xl text-[#FAF7F2]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={() => setShowIOSModal(false)}>
+          <div ref={iosDialogRef} role="dialog" aria-modal="true" aria-label="Install RossyBraids app" onClick={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-[#1C130D] border border-[#D4AF37]/40 rounded-xl p-5 shadow-2xl text-[#FAF7F2]">
             <button
               onClick={() => setShowIOSModal(false)}
+              aria-label="Close"
               className="absolute top-4 right-4 p-1 rounded-full text-[#DFCEBC] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />

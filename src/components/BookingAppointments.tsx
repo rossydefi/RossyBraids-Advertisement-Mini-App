@@ -1187,12 +1187,12 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
                 {/* Address & Verification Fields */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                    <label htmlFor="bk-detailed-residential-add" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                       Detailed Residential Address (House/Flat No., Street, Estate) *
                     </label>
                     <div className="relative">
                       <MapPin className="w-4 h-4 absolute left-3 top-3 text-[#8F6A1E]" />
-                      <textarea
+                      <textarea id="bk-detailed-residential-add"
                         rows={2}
                         required={locationType === 'home_service'}
                         placeholder="e.g. Flat 4B, Sunflower Court, Plot 14 Admiralty Way, Lekki Phase 1"
@@ -1204,10 +1204,10 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                    <label htmlFor="bk-nearest-landmark-estate" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                       Nearest Landmark / Estate Gate Protocol
                     </label>
-                    <input
+                    <input id="bk-nearest-landmark-estate"
                       type="text"
                       placeholder="e.g. Opposite Genesis Cinema, gate code required"
                       value={homeLandmark}
@@ -1217,10 +1217,10 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                    <label htmlFor="bk-type-of-residence" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                       Type of Residence
                     </label>
-                    <select
+                    <select id="bk-type-of-residence"
                       value={residenceType}
                       onChange={(e) => setResidenceType(e.target.value)}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-[#DFCEBC] bg-white focus:outline-none focus:border-[#D4AF37]"
@@ -1234,12 +1234,12 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                    <label htmlFor="bk-your-social-media-handle" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                       Your Social Media Handle (Instagram or Facebook) *
                     </label>
                     <div className="relative">
                       <Instagram className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8F6A1E]" />
-                      <input
+                      <input id="bk-your-social-media-handle"
                         type="text"
                         required={locationType === 'home_service'}
                         placeholder="e.g. @amara_kalu or facebook.com/amara"
@@ -1254,11 +1254,11 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                    <label htmlFor="bk-emergency-alternate-cont" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                       Emergency Alternate Contact (Name & Phone)
                     </label>
                     <div className="flex gap-2">
-                      <input
+                      <input id="bk-emergency-alternate-cont"
                         type="text"
                         placeholder="Spouse / Roommate Name"
                         value={altContactName}
@@ -1715,12 +1715,12 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <div>
-                <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                <label htmlFor="bk-full-name" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                   Full Name *
                 </label>
                 <div className="relative">
                   <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8F6A1E]" />
-                  <input
+                  <input id="bk-full-name"
                     type="text"
                     required
                     placeholder="e.g. Amara Kalu"
@@ -1732,12 +1732,12 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                <label htmlFor="bk-whatsapp-phone-number" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                   WhatsApp / Phone Number *
                 </label>
                 <div className="relative">
                   <Phone className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8F6A1E]" />
-                  <input
+                  <input id="bk-whatsapp-phone-number"
                     type="tel"
                     required
                     placeholder="e.g. 0812 345 6789"
@@ -1749,10 +1749,10 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                <label htmlFor="bk-email-address-optional" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                   Email Address (Optional)
                 </label>
-                <input
+                <input id="bk-email-address-optional"
                   type="email"
                   placeholder="name@example.com"
                   value={clientEmail}
@@ -1762,10 +1762,10 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
+                <label htmlFor="bk-special-notes-or-texture" className="block text-xs font-semibold text-[#6C4A32] mb-1 font-sans-modern">
                   Special Notes or Texture Details (Optional)
                 </label>
-                <textarea
+                <textarea id="bk-special-notes-or-texture"
                   rows={2}
                   placeholder="e.g. My hair is natural 4C with tender scalp. Please bring extra gold cuffs and organic oil."
                   value={hairNotes}

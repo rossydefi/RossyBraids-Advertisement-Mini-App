@@ -142,7 +142,7 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
             </span>
             <span>
               <span className="flex items-center gap-2">
-                <span className="font-cinzel text-base sm:text-lg tracking-[0.18em] uppercase font-bold text-[#F5E6A3]">RossyBraids</span>
+                <span className="font-cinzel text-sm sm:text-lg tracking-[0.08em] sm:tracking-[0.18em] uppercase font-bold text-[#F5E6A3]">RossyBraids</span>
                 <span className="hidden sm:inline-block text-[9px] uppercase font-sans-modern font-semibold px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30">
                   Official Salon App
                 </span>
@@ -173,11 +173,11 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
             ))}
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-2.5 text-xs">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 text-xs">
             <button
               type="button"
               onClick={() => setShowReferModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F5E6A3] text-[#2D1B11] font-sans-modern font-bold hover:brightness-105 active:scale-95 transition-all shadow-sm cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F5E6A3] text-[#2D1B11] font-sans-modern font-bold hover:brightness-105 active:scale-95 transition-all shadow-sm cursor-pointer"
               title="Refer a friend and both earn 25% off our flagship luxury wig"
             >
               <Gift className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
@@ -206,7 +206,7 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
               href={whatsappHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#25D366] transition-all font-sans-modern font-semibold"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#25D366] transition-all font-sans-modern font-semibold"
               aria-label="Chat on WhatsApp"
               onClick={() => trackEvent('WhatsApp Click')}
             >
@@ -218,7 +218,7 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
               type="button"
               onClick={() => setShowBrandSpecs(!showBrandSpecs)}
               aria-expanded={showBrandSpecs}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[#DFCEBC] hover:text-white transition-all text-xs cursor-pointer"
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[#DFCEBC] hover:text-white transition-all text-xs cursor-pointer"
               title="Brand specs & information"
               aria-label="Brand specs and information"
             >
