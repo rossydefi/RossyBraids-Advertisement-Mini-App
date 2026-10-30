@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { TESTIMONIALS_DATA } from '../data/flyerData';
+import { usePublicReviews } from '../hooks/usePublicReviews';
 import { Testimonial, FlyerTheme } from '../types';
-import { Star, CheckCircle2, ChevronLeft, ChevronRight, Quote, ShieldCheck } from 'lucide-react';
+import { Star, CheckCircle2, ChevronLeft, ChevronRight, Quote } from 'lucide-react';
 
 interface TestimonialCarouselProps {
   theme: FlyerTheme;
@@ -20,8 +20,8 @@ export const TestimonialCarousel: React.FC<TestimonialCarouselProps> = ({
   const [isPaused, setIsPaused] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const testimonials = TESTIMONIALS_DATA;
-  const current: Testimonial = testimonials[currentIndex];
+  const testimonials = usePublicReviews();
+  const current: Testimonial = testimonials[currentIndex % testimonials.length];
 
   const nextSlide = () => {
     setCurrentIndex((prev) => (prev + 1) % testimonials.length);
@@ -55,7 +55,7 @@ export const TestimonialCarousel: React.FC<TestimonialCarouselProps> = ({
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       role="region"
-      aria-label="Verified Client Testimonials Carousel"
+      aria-label="Client reviews"
     >
       {/* Header Bar: Trust Header + Rating summary + Navigation */}
       <div className="flex items-center justify-between gap-2 pb-1.5 mb-1.5 border-b border-[#D4AF37]/20">
@@ -66,10 +66,7 @@ export const TestimonialCarousel: React.FC<TestimonialCarouselProps> = ({
             ))}
           </div>
           <span className="font-cinzel text-[10px] md:text-[11px] font-bold tracking-wider uppercase text-[#AA7C11] dark:text-[#E6CA65]">
-            Verified Client Reviews
-          </span>
-          <span className="hidden sm:inline-flex items-center gap-0.5 text-[8.5px] font-sans-modern font-semibold px-1.5 py-0.2 rounded-full bg-[#D4AF37]/15 text-[#AA7C11] dark:text-[#E6CA65] border border-[#D4AF37]/30">
-            <ShieldCheck className="w-2.5 h-2.5" /> 100% Verified
+            Client Reviews
           </span>
         </div>
 
@@ -126,9 +123,11 @@ export const TestimonialCarousel: React.FC<TestimonialCarouselProps> = ({
               {current.clientName}
             </span>
             <span className="text-[#8C6D53] dark:text-[#BFA997]">• {current.location}</span>
-            <span className="inline-flex items-center gap-0.5 text-[#25D366] font-semibold">
-              <CheckCircle2 className="w-2.5 h-2.5" /> Verified
-            </span>
+            {current.verified && (
+              <span className="inline-flex items-center gap-0.5 text-[#25D366] font-semibold">
+                <CheckCircle2 className="w-2.5 h-2.5" /> Verified
+              </span>
+            )}
           </div>
           <span className="font-sans-modern font-medium text-[#AA7C11] dark:text-[#E6CA65] bg-[#D4AF37]/10 px-1.5 py-0.5 rounded text-[8.5px]">
             Booked: {current.serviceBooked}

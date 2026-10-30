@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PRODUCTS_SHOP_DATA, BRAND_DATA } from '../data/flyerData';
-import { CartItem, ProductShopItem, ReferralDiscountReward } from '../types';
+import { CartItem, ProductShopItem } from '../types';
 import {
   ShoppingBag,
   Plus,
@@ -22,12 +22,24 @@ import {
   Gift,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import {
-  getMostExpensiveWig,
-  validateDiscountCodeForCart,
-  getTimeRemaining,
-  markDiscountRewardUsed,
-} from '../utils/referral';
+import { getMostExpensiveWig, getTimeRemaining } from '../utils/referral';
+import { api, applyProductOverrides, ApiError, request, type RewardView, type ServerOrder } from '../api/client';
+import { useSite } from '../api/SiteProvider';
+import { useModalA11y } from '../hooks/useModalA11y';
+
+interface RewardCheck {
+  discountAmount: number;
+  reward?: RewardView;
+  /** True when the server has no preview endpoint: the order itself will verify the code. */
+  unverified?: boolean;
+}
+
+/** Asks the server whether this code can be used by this phone on this cart. Throws ApiError with the reason. */
+async function checkReward(code: string, phone: string, productIds: string[]): Promise<RewardCheck> {
+  const res = await api.checkReward(code, phone, productIds);
+  if (!res.valid || !res.reward) throw new ApiError(400, res.error || 'This discount code cannot be used.');
+  return { discountAmount: res.discountAmount ?? res.reward.discountAmount, reward: res.reward };
+}
 
 interface ProductShopProps {
   onNavigateToBooking?: () => void;
@@ -50,19 +62,34 @@ export const ProductShop: React.FC<ProductShopProps> = ({
   const [deliveryAddress, setDeliveryAddress] = useState<string>('');
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [customerEmail, setCustomerEmail] = useState<string>('');
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [placedOrder, setPlacedOrder] = useState<ServerOrder | null>(null);
+  const [checkingDiscount, setCheckingDiscount] = useState<boolean>(false);
+
+  const { config, refreshConfig } = useSite();
+  // Catalog with the owner's live price and stock changes applied
+  const products = useMemo(() => applyProductOverrides(PRODUCTS_SHOP_DATA, config), [config]);
 
   // Referral discount code state
   const [discountCodeInput, setDiscountCodeInput] = useState<string>(prefilledDiscountCode || '');
   const [appliedDiscount, setAppliedDiscount] = useState<{
     code: string;
     discountAmount: number;
-    reward?: ReferralDiscountReward;
+    reward?: RewardView;
     targetWig?: ProductShopItem;
+    unverified?: boolean;
   } | null>(null);
   const [discountError, setDiscountError] = useState<string | null>(null);
   const [countdownFormatted, setCountdownFormatted] = useState<string>('');
 
-  const mostExpensiveWig = getMostExpensiveWig(PRODUCTS_SHOP_DATA);
+  const mostExpensiveWig = getMostExpensiveWig(products);
+
+  const closeCart = () => setIsCartOpen(false);
+  const closeProductModal = () => setSelectedProductModal(null);
+  const cartDialogRef = useModalA11y(isCartOpen, closeCart);
+  const productDialogRef = useModalA11y(!!selectedProductModal, closeProductModal);
 
   const categories = [
     'All',
@@ -76,7 +103,7 @@ export const ProductShop: React.FC<ProductShopProps> = ({
   // If navigated with preselected wig or prefilled discount code
   useEffect(() => {
     if (preselectedWigId) {
-      const wig = PRODUCTS_SHOP_DATA.find((p) => p.id === preselectedWigId);
+      const wig = products.find((p) => p.id === preselectedWigId);
       if (wig) {
         setCart((prev) => {
           if (!prev.some((item) => item.product.id === wig.id)) {
@@ -88,7 +115,17 @@ export const ProductShop: React.FC<ProductShopProps> = ({
         setIsCartOpen(true);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedWigId]);
+
+  // Keep bag items in step with the owner's latest prices and stock
+  useEffect(() => {
+    setCart((prev) =>
+      prev
+        .map((item) => ({ ...item, product: products.find((p) => p.id === item.product.id) ?? item.product }))
+        .filter((item) => item.product.inStock)
+    );
+  }, [products]);
 
   useEffect(() => {
     if (prefilledDiscountCode) {
@@ -99,13 +136,16 @@ export const ProductShop: React.FC<ProductShopProps> = ({
 
   // Live timer tick for active discount countdown
   useEffect(() => {
-    if (!appliedDiscount?.reward) return;
+    if (!appliedDiscount?.reward?.expiresAt) {
+      setCountdownFormatted('');
+      return;
+    }
 
     const tick = () => {
-      const status = getTimeRemaining(appliedDiscount.reward!.expiresAt);
+      const status = getTimeRemaining(appliedDiscount.reward!.expiresAt!);
       if (status.isExpired) {
         setAppliedDiscount(null);
-        setDiscountError('Your referral discount code expired after the strict 3-day window.');
+        setDiscountError('Your referral discount code has expired. Codes are valid for 72 hours once unlocked.');
       } else {
         setCountdownFormatted(status.formatted);
       }
@@ -116,25 +156,34 @@ export const ProductShop: React.FC<ProductShopProps> = ({
     return () => clearInterval(timer);
   }, [appliedDiscount]);
 
-  // Validate applied discount whenever cart items change
+  // Re-check the applied code with the server whenever the bag or phone number changes
+  const cartKey = cart.map((i) => i.product.id).sort().join(',');
+  const recheckSeq = useRef(0);
   useEffect(() => {
-    if (appliedDiscount) {
-      const hasTarget = cart.some(
-        (item) =>
-          item.product.id === mostExpensiveWig.id ||
-          item.product.id === appliedDiscount.targetWig?.id
-      );
-      if (!hasTarget) {
+    if (!appliedDiscount) return;
+    const seq = ++recheckSeq.current;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkReward(appliedDiscount.code, customerPhone, cart.map((i) => i.product.id));
+        if (seq !== recheckSeq.current) return;
+        if (!result.unverified) {
+          setAppliedDiscount((prev) =>
+            prev ? { ...prev, discountAmount: result.discountAmount, reward: result.reward ?? prev.reward } : prev
+          );
+        }
+      } catch (err) {
+        if (seq !== recheckSeq.current) return;
+        if (err instanceof ApiError && err.status === 0) return; // offline: the order request will decide
         setAppliedDiscount(null);
-        setDiscountError(
-          `Strict Referral Rule: The discount was removed because our most expensive wig (${mostExpensiveWig.name}) is no longer in your bag.`
-        );
+        setDiscountError(err instanceof ApiError ? err.message : 'Your discount could not be re-checked.');
       }
-    }
-  }, [cart, appliedDiscount, mostExpensiveWig]);
+    }, 600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartKey, customerPhone]);
 
   // Filtering
-  const filteredProducts = PRODUCTS_SHOP_DATA.filter((prod) => {
+  const filteredProducts = products.filter((prod) => {
     const matchCategory =
       selectedCategory === 'All' || prod.category === selectedCategory;
     const matchSearch =
@@ -145,6 +194,9 @@ export const ProductShop: React.FC<ProductShopProps> = ({
 
   // Cart operations
   const addToCart = (product: ProductShopItem) => {
+    if (!product.inStock) return;
+    setOrderError(null);
+    setPlacedOrder(null);
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
@@ -176,34 +228,41 @@ export const ProductShop: React.FC<ProductShopProps> = ({
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
 
-  const handleApplyDiscount = () => {
-    if (!discountCodeInput.trim()) {
+  const handleApplyDiscount = async () => {
+    const code = discountCodeInput.trim().toUpperCase();
+    if (!code) {
       setDiscountError('Please enter a referral discount code.');
       return;
     }
+    if (!customerPhone.trim()) {
+      setDiscountError('Enter your phone number below first. Reward codes are tied to the phone number used when booking.');
+      return;
+    }
 
-    const validation = validateDiscountCodeForCart(
-      discountCodeInput,
-      cart,
-      PRODUCTS_SHOP_DATA
-    );
-
-    if (validation.valid && validation.discountAmount) {
+    setCheckingDiscount(true);
+    setDiscountError(null);
+    try {
+      const result = await checkReward(code, customerPhone, cart.map((i) => i.product.id));
+      const wig = result.reward ? products.find((p) => p.id === result.reward!.productId) : mostExpensiveWig;
+      const inCart = cart.find((i) => i.product.id === wig?.id);
       setAppliedDiscount({
-        code: discountCodeInput.trim().toUpperCase(),
-        discountAmount: validation.discountAmount,
-        reward: validation.reward,
-        targetWig: validation.targetWig,
+        code,
+        // Without a preview endpoint show the standard 25%; the order response carries the real figure.
+        discountAmount: result.unverified ? Math.round((inCart?.product.price ?? 0) * 0.25) : result.discountAmount,
+        reward: result.reward,
+        targetWig: wig,
+        unverified: result.unverified,
       });
-      setDiscountError(null);
       confetti({
         particleCount: 50,
         spread: 60,
         origin: { y: 0.6 },
         colors: ['#D4AF37', '#10B981', '#FAF7F2'],
       });
-    } else {
-      setDiscountError(validation.error || 'Invalid discount code.');
+    } catch (err) {
+      setDiscountError(err instanceof ApiError ? err.message : 'Could not check this code. Please try again.');
+    } finally {
+      setCheckingDiscount(false);
     }
   };
 
@@ -225,88 +284,93 @@ export const ProductShop: React.FC<ProductShopProps> = ({
     (i) => i.product.id === mostExpensiveWig.id
   );
 
-  const handleCheckoutWhatsApp = () => {
-    if (cart.length === 0) return;
-
-    // If a referral discount was applied, mark it as redeemed
-    if (appliedDiscount) {
-      markDiscountRewardUsed(appliedDiscount.code);
-    }
-
-    // Record order in localStorage for client history & Happy New Month eligibility
-    try {
-      const orderRecord = {
-        id: `ORD-${Date.now()}`,
-        customerName: customerName.trim() || 'Loyal Client',
-        customerPhone: customerPhone.trim() || '',
-        deliveryAddress: deliveryAddress.trim() || 'Studio Pick-up',
-        items: cart.map((i) => ({
-          productName: i.product.name,
-          quantity: i.quantity,
-          price: i.product.price,
-        })),
-        subtotal: cartSubtotal,
-        discountApplied: appliedDiscount
-          ? {
-              code: appliedDiscount.code,
-              amount: appliedDiscount.discountAmount,
-              targetProduct: appliedDiscount.targetWig?.name,
-            }
-          : undefined,
-        totalPaid: finalPayable,
-        createdAt: new Date().toISOString(),
-      };
-      const existingRaw = localStorage.getItem('rossybraids_orders');
-      const existing = existingRaw ? JSON.parse(existingRaw) : [];
-      localStorage.setItem('rossybraids_orders', JSON.stringify([orderRecord, ...existing]));
-    } catch {
-      // Ignore
-    }
-
-    confetti({
-      particleCount: 60,
-      spread: 60,
-      origin: { y: 0.7 },
-      colors: ['#D4AF37', '#FAF7F2', '#2D1B11'],
-    });
-
-    const itemsSummary = cart
+  const openOrderOnWhatsApp = (order: ServerOrder) => {
+    const itemsSummary = order.items
       .map(
         (item, index) =>
-          `${index + 1}. ${item.product.name} (${item.product.volume || 'Item'}) x${
-            item.quantity
-          } — ₦${(item.product.price * item.quantity).toLocaleString()}`
+          `${index + 1}. ${item.productName} x${item.quantity} — ₦${(item.price * item.quantity).toLocaleString()}`
       )
       .join('\n');
 
-    const discountSummaryText = appliedDiscount
-      ? `\n\n👑 *VIP REFERRAL DISCOUNT APPLIED (Strict 3-Day Expiry):*\n` +
-        `• Code: ${appliedDiscount.code}\n` +
-        `• Target Flagship Wig: ${appliedDiscount.targetWig?.name}\n` +
-        `• Discount: -₦${appliedDiscount.discountAmount.toLocaleString()} (25% OFF)\n` +
-        `• Original Subtotal: ₦${cartSubtotal.toLocaleString()}\n` +
-        `• *NET PAYABLE AMOUNT:* ₦${finalPayable.toLocaleString()}`
-      : `\n\n• Subtotal: ₦${cartSubtotal.toLocaleString()}`;
-
-    const customerDetails =
-      customerName || customerPhone || deliveryAddress
-        ? `\n\n• Customer Name: ${customerName || 'N/A'}\n• Phone: ${
-            customerPhone || 'N/A'
-          }\n• Delivery Address: ${deliveryAddress || 'Pick-up at RossyBraids Studio'}`
-        : '';
+    const discountSummaryText = order.discount > 0
+      ? `\n\n👑 *VIP REFERRAL DISCOUNT APPLIED:*\n` +
+        `• Code: ${order.discountCode}\n` +
+        `• Discount: -₦${order.discount.toLocaleString()}\n` +
+        `• Original Subtotal: ₦${order.subtotal.toLocaleString()}\n` +
+        `• *NET PAYABLE AMOUNT:* ₦${order.total.toLocaleString()}`
+      : `\n\n• Subtotal: ₦${order.subtotal.toLocaleString()}`;
 
     const message = encodeURIComponent(
-      `Hello Rose / RossyBraids! 🛍️✨\nI would like to place an order for hair-care products & luxury wigs:\n\n` +
+      `Hello Rose / RossyBraids! 🛍️✨\nI would like to confirm my order ${order.id} for hair-care products & luxury wigs:\n\n` +
         itemsSummary +
         discountSummaryText +
         `\n• Delivery Status: ${
-          isFreeDelivery ? 'FREE VIP Delivery (Orders over ₦25,000)' : 'Standard Local Dispatch'
+          order.total >= 25000 ? 'FREE VIP Delivery (Orders over ₦25,000)' : 'Standard Local Dispatch'
         }` +
-        customerDetails +
+        `\n\n• Customer Name: ${order.customerName}\n• Phone: ${order.customerPhone}\n• Delivery Address: ${
+          order.deliveryAddress || 'Pick-up at RossyBraids Studio'
+        }` +
         `\n\nPlease confirm product availability and payment account details. Thank you!`
     );
 
     window.open(`https://wa.me/${BRAND_DATA.whatsappRaw}?text=${message}`, '_blank');
+  };
+
+  const handlePlaceOrder = async (payNow: boolean) => {
+    if (cart.length === 0 || submitting) return;
+    if (!customerName.trim() || !customerPhone.trim() || !deliveryAddress.trim()) {
+      setOrderError('Please fill in your name, phone number and delivery address.');
+      return;
+    }
+
+    setSubmitting(true);
+    setOrderError(null);
+    try {
+      const { order, payment } = await api.createOrder({
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        customerEmail: customerEmail.trim() || undefined,
+        deliveryAddress: deliveryAddress.trim(),
+        items: cart.map((i) => ({ productId: i.product.id, quantity: i.quantity })),
+        discountCode: appliedDiscount?.code,
+        payNow,
+      });
+
+      // Cache the order on this device for the "Happy New Month" greeting
+      try {
+        const existingRaw = localStorage.getItem('rossybraids_orders');
+        const existing = existingRaw ? JSON.parse(existingRaw) : [];
+        localStorage.setItem('rossybraids_orders', JSON.stringify([order, ...existing]));
+      } catch {
+        // Ignore storage issues
+      }
+
+      if (payNow && payment) {
+        window.location.assign(payment.authorizationUrl);
+        return;
+      }
+
+      setPlacedOrder(order);
+      setCart([]);
+      setAppliedDiscount(null);
+      setDiscountCodeInput('');
+      confetti({
+        particleCount: 60,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#D4AF37', '#FAF7F2', '#2D1B11'],
+      });
+      if (payNow) {
+        setOrderError('Your order was saved, but online payment could not start. Send it on WhatsApp and Rose will share payment details.');
+      }
+      openOrderOnWhatsApp(order);
+    } catch (err) {
+      setOrderError(err instanceof ApiError ? err.message : 'Something went wrong placing your order. Your bag is still saved, please try again.');
+      // The server may have changed stock or prices since this page loaded
+      if (err instanceof ApiError && err.status === 409) void refreshConfig();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -338,6 +402,7 @@ export const ProductShop: React.FC<ProductShopProps> = ({
         {/* Floating Cart Trigger on Desktop */}
         <button
           onClick={() => setIsCartOpen(true)}
+          aria-label={`Open shopping bag, ${cartTotalItems} item${cartTotalItems === 1 ? '' : 's'}`}
           className="absolute top-6 right-6 hidden sm:flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#D4AF37] text-[#2A1810] font-sans-modern font-bold text-xs shadow-lg hover:brightness-110 active:scale-95 transition-all cursor-pointer z-10"
         >
           <ShoppingBag className="w-4 h-4" />
@@ -362,14 +427,14 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                 Referral Reward Program
               </span>
               <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">
-                Strict 3-Day Window
+                72-Hour Window
               </span>
             </div>
             <h3 className="font-serif-luxury text-base sm:text-lg font-bold text-white">
               Unlock 25% OFF Our Most Expensive Luxury Wig
             </h3>
             <p className="text-xs text-[#DFCEBC] max-w-xl">
-              Invite a friend to book any appointment at RossyBraids. When they book, both of you receive a discount code strictly valid for our flagship wig ({mostExpensiveWig.name})!
+              Invite a friend to book any appointment at RossyBraids. Once their first booking is confirmed, both of you unlock a discount code strictly valid for our flagship wig ({mostExpensiveWig.name})!
             </p>
           </div>
         </div>
@@ -407,6 +472,7 @@ export const ProductShop: React.FC<ProductShopProps> = ({
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
+              aria-pressed={selectedCategory === cat}
               className={`px-3.5 py-1.5 rounded-full text-xs font-sans-modern font-semibold transition-all cursor-pointer ${
                 selectedCategory === cat
                   ? 'bg-[#2D1B11] text-[#D4AF37] shadow-sm'
@@ -420,9 +486,10 @@ export const ProductShop: React.FC<ProductShopProps> = ({
 
         {/* Search Input */}
         <div className="relative w-full md:w-64">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8F6A1E]" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#8F6A1E]" aria-hidden="true" />
           <input
-            type="text"
+            type="search"
+            aria-label="Search products"
             placeholder="Search products..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -448,15 +515,18 @@ export const ProductShop: React.FC<ProductShopProps> = ({
               }`}
             >
               {/* Image & Badges */}
-              <div
-                className="relative h-56 bg-[#2D1B11] overflow-hidden cursor-pointer"
+              <button
+                type="button"
+                className="relative block h-56 w-full bg-[#2D1B11] overflow-hidden cursor-pointer text-left"
                 onClick={() => setSelectedProductModal(product)}
+                aria-label={`View details for ${product.name}`}
               >
                 <img
                   src={product.image}
-                  alt={product.name}
+                  alt=""
+                  loading="lazy"
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${product.inStock ? '' : 'grayscale opacity-60'}`}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-40 transition-opacity" />
 
@@ -477,8 +547,13 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                       Bestseller
                     </span>
                   )}
+                  {!product.inStock && (
+                    <span className="px-2 py-0.5 rounded-full bg-red-700 text-white text-[10px] font-sans-modern font-bold uppercase tracking-wider shadow-sm">
+                      Sold out
+                    </span>
+                  )}
                 </div>
-              </div>
+              </button>
 
               {/* Product Content */}
               <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
@@ -494,11 +569,10 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                     )}
                   </div>
 
-                  <h3
-                    onClick={() => setSelectedProductModal(product)}
-                    className="font-serif-luxury text-base font-bold text-[#2D1B11] group-hover:text-[#8F6A1E] transition-colors cursor-pointer line-clamp-1"
-                  >
-                    {product.name}
+                  <h3 className="font-serif-luxury text-base font-bold text-[#2D1B11] group-hover:text-[#8F6A1E] transition-colors line-clamp-1">
+                    <button type="button" onClick={() => setSelectedProductModal(product)} className="cursor-pointer text-left">
+                      {product.name}
+                    </button>
                   </h3>
                   <p className="text-xs text-[#6C4A32] font-sans-modern line-clamp-2">
                     {product.description}
@@ -532,28 +606,34 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                   {cartItem ? (
                     <div className="flex items-center gap-2 bg-[#F5EFEB] border border-[#D4AF37] rounded-full px-2 py-1">
                       <button
+                        type="button"
                         onClick={() => updateQuantity(product.id, -1)}
+                        aria-label={`Remove one ${product.name}`}
                         className="w-6 h-6 rounded-full bg-white text-[#2D1B11] flex items-center justify-center text-xs hover:bg-[#D4AF37] transition-colors cursor-pointer"
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus className="w-3 h-3" aria-hidden="true" />
                       </button>
-                      <span className="text-xs font-bold font-sans-modern px-1">
+                      <span className="text-xs font-bold font-sans-modern px-1" aria-live="polite">
                         {cartItem.quantity}
                       </span>
                       <button
+                        type="button"
                         onClick={() => updateQuantity(product.id, 1)}
+                        aria-label={`Add one more ${product.name}`}
                         className="w-6 h-6 rounded-full bg-[#D4AF37] text-[#2D1B11] flex items-center justify-center text-xs hover:brightness-110 transition-colors cursor-pointer"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-3 h-3" aria-hidden="true" />
                       </button>
                     </div>
                   ) : (
                     <button
+                      type="button"
                       onClick={() => addToCart(product)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#2D1B11] text-[#F9E498] text-xs font-sans-modern font-semibold hover:bg-[#442718] active:scale-95 transition-all cursor-pointer shadow-sm"
+                      disabled={!product.inStock}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#2D1B11] text-[#F9E498] text-xs font-sans-modern font-semibold hover:bg-[#442718] active:scale-95 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
                     >
-                      <Plus className="w-3.5 h-3.5 text-[#D4AF37]" />
-                      <span>Add to Bag</span>
+                      <Plus className="w-3.5 h-3.5 text-[#D4AF37]" aria-hidden="true" />
+                      <span>{product.inStock ? 'Add to Bag' : 'Out of stock'}</span>
                     </button>
                   )}
                 </div>
@@ -568,6 +648,7 @@ export const ProductShop: React.FC<ProductShopProps> = ({
         <div className="fixed bottom-4 left-4 right-4 sm:hidden z-40">
           <button
             onClick={() => setIsCartOpen(true)}
+            aria-label={`Open shopping bag, ${cartTotalItems} item${cartTotalItems === 1 ? '' : 's'}`}
             className="w-full py-3.5 px-5 rounded-full bg-[#2D1B11] text-[#FAF7F2] border border-[#D4AF37] shadow-2xl flex items-center justify-between font-sans-modern font-bold text-xs"
           >
             <div className="flex items-center gap-2">
@@ -589,20 +670,28 @@ export const ProductShop: React.FC<ProductShopProps> = ({
       {/* Cart Slide-Over Drawer */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md bg-[#FAF7F2] h-full shadow-2xl flex flex-col text-[#2D1B11]">
+          <div
+            ref={cartDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cart-title"
+            className="w-full max-w-md bg-[#FAF7F2] h-full shadow-2xl flex flex-col text-[#2D1B11] focus:outline-none"
+          >
             {/* Cart Header */}
             <div className="p-5 border-b border-[#DFCEBC] flex items-center justify-between bg-[#2D1B11] text-[#FAF7F2]">
               <div className="flex items-center gap-2.5">
                 <ShoppingBag className="w-5 h-5 text-[#D4AF37]" />
-                <h3 className="font-serif-luxury text-lg font-bold text-[#F9E498]">
+                <h3 id="cart-title" className="font-serif-luxury text-lg font-bold text-[#F9E498]">
                   Your Shopping Bag ({cartTotalItems})
                 </h3>
               </div>
               <button
-                onClick={() => setIsCartOpen(false)}
+                type="button"
+                onClick={closeCart}
+                aria-label="Close shopping bag"
                 className="p-1 rounded-full text-[#DFCEBC] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -623,7 +712,30 @@ export const ProductShop: React.FC<ProductShopProps> = ({
 
             {/* Cart Items List */}
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              {cart.length === 0 ? (
+              {cart.length === 0 && placedOrder ? (
+                <div role="status" className="text-center py-10 space-y-3">
+                  <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" aria-hidden="true" />
+                  <p className="font-serif-luxury text-lg font-bold text-[#2D1B11]">Order {placedOrder.id} received!</p>
+                  <p className="text-xs text-[#6C4A32] font-sans-modern">
+                    Total <strong>₦{placedOrder.total.toLocaleString()}</strong>
+                    {placedOrder.discount > 0 && <> (you saved ₦{placedOrder.discount.toLocaleString()})</>}. Send the order on
+                    WhatsApp so Rose can confirm availability and share payment details.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => openOrderOnWhatsApp(placedOrder)}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#25D366] text-white text-xs font-bold cursor-pointer"
+                  >
+                    <MessageCircle className="w-4 h-4" aria-hidden="true" />
+                    <span>Send order on WhatsApp</span>
+                  </button>
+                  {orderError && (
+                    <p role="alert" className="text-[11px] text-amber-800 bg-amber-50 border border-amber-300 rounded-lg p-2">
+                      {orderError}
+                    </p>
+                  )}
+                </div>
+              ) : cart.length === 0 ? (
                 <div className="text-center py-12 space-y-3">
                   <ShoppingBag className="w-12 h-12 text-[#DFCEBC] mx-auto" />
                   <p className="font-serif-luxury text-base text-[#6C4A32]">Your bag is empty.</p>
@@ -639,7 +751,7 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                   >
                     <img
                       src={product.image}
-                      alt={product.name}
+                      alt=""
                       className="w-16 h-16 rounded-lg object-cover shrink-0 border border-black/5"
                     />
                     <div className="flex-1 min-w-0">
@@ -653,28 +765,33 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                       <div className="mt-2 flex items-center justify-between">
                         <div className="flex items-center gap-1.5 bg-[#F5EFEB] rounded-full px-2 py-0.5 border border-[#DFCEBC]">
                           <button
+                            type="button"
                             onClick={() => updateQuantity(product.id, -1)}
+                            aria-label={`Remove one ${product.name}`}
                             className="w-5 h-5 rounded-full text-xs hover:bg-[#D4AF37] flex items-center justify-center cursor-pointer"
                           >
-                            <Minus className="w-2.5 h-2.5" />
+                            <Minus className="w-2.5 h-2.5" aria-hidden="true" />
                           </button>
                           <span className="text-xs font-bold font-sans-modern px-1">
                             {quantity}
                           </span>
                           <button
+                            type="button"
                             onClick={() => updateQuantity(product.id, 1)}
+                            aria-label={`Add one more ${product.name}`}
                             className="w-5 h-5 rounded-full text-xs hover:bg-[#D4AF37] flex items-center justify-center cursor-pointer"
                           >
-                            <Plus className="w-2.5 h-2.5" />
+                            <Plus className="w-2.5 h-2.5" aria-hidden="true" />
                           </button>
                         </div>
 
                         <button
+                          type="button"
                           onClick={() => removeFromCart(product.id)}
                           className="text-red-500 hover:text-red-700 p-1 cursor-pointer"
-                          title="Remove item"
+                          aria-label={`Remove ${product.name} from bag`}
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -696,8 +813,11 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <label htmlFor="discount-code" className="sr-only">Referral discount code</label>
                     <input
+                      id="discount-code"
                       type="text"
+                      autoComplete="off"
                       placeholder="e.g. REF-WELCOME-XXXX"
                       value={discountCodeInput}
                       onChange={(e) => {
@@ -719,32 +839,33 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                       <button
                         type="button"
                         onClick={handleApplyDiscount}
-                        className="px-4 py-2 text-xs font-bold rounded-lg bg-[#2D1B11] text-[#F9E498] hover:bg-[#442718] transition-colors cursor-pointer shadow-xs"
+                        disabled={checkingDiscount}
+                        className="px-4 py-2 text-xs font-bold rounded-lg bg-[#2D1B11] text-[#F9E498] hover:bg-[#442718] transition-colors cursor-pointer shadow-xs disabled:opacity-60 disabled:cursor-wait"
                       >
-                        Apply
+                        {checkingDiscount ? 'Checking…' : 'Apply'}
                       </button>
                     )}
                   </div>
 
                   {/* Active Discount Card with 3-Day Countdown */}
                   {appliedDiscount && (
-                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 space-y-1.5 animate-fade-in text-xs">
+                    <div role="status" className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 space-y-1.5 animate-fade-in text-xs">
                       <div className="flex items-center justify-between text-emerald-800 font-bold">
                         <span className="flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>25% Off Flagship Wig Applied!</span>
+                          <span>{appliedDiscount.unverified ? '25% Off Flagship Wig (confirmed at checkout)' : '25% Off Flagship Wig Applied!'}</span>
                         </span>
                         <span className="font-mono text-sm text-emerald-700 font-extrabold">
                           -₦{appliedDiscount.discountAmount.toLocaleString()}
                         </span>
                       </div>
                       <p className="text-[11px] text-emerald-800">
-                        Strictly applied to: <strong>{appliedDiscount.targetWig?.name}</strong>
+                        Applied to: <strong>{appliedDiscount.targetWig?.name}</strong>
                       </p>
                       {countdownFormatted && (
                         <div className="flex items-center gap-1.5 text-[10.5px] text-amber-800 font-semibold pt-1 border-t border-emerald-200/60">
                           <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
-                          <span>Strict 3-Day Window Remaining: {countdownFormatted}</span>
+                          <span>72-Hour Window Remaining: {countdownFormatted}</span>
                         </div>
                       )}
                     </div>
@@ -752,12 +873,12 @@ export const ProductShop: React.FC<ProductShopProps> = ({
 
                   {/* Discount Error / Restriction Notification */}
                   {discountError && (
-                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-2 animate-fade-in">
+                    <div role="alert" className="p-3 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-2 animate-fade-in">
                       <div className="flex items-start gap-1.5">
                         <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                         <p className="leading-snug text-[11.5px]">{discountError}</p>
                       </div>
-                      {!hasMostExpensiveWigInCart && (
+                      {!hasMostExpensiveWigInCart && mostExpensiveWig.inStock && (
                         <button
                           type="button"
                           onClick={() => {
@@ -782,8 +903,12 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                     Delivery / Contact Info
                   </span>
                   <div>
+                    <label htmlFor="customer-name" className="sr-only">Your full name</label>
                     <input
+                      id="customer-name"
                       type="text"
+                      required
+                      autoComplete="name"
                       placeholder="Your Full Name *"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
@@ -791,16 +916,38 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                     />
                   </div>
                   <div>
+                    <label htmlFor="customer-phone" className="sr-only">Phone or WhatsApp number</label>
                     <input
+                      id="customer-phone"
                       type="tel"
+                      required
+                      autoComplete="tel"
                       placeholder="Phone / WhatsApp Number *"
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
                       className="w-full px-3 py-2 text-xs rounded-lg border border-[#DFCEBC] bg-[#FAF7F2] focus:outline-none focus:border-[#D4AF37]"
                     />
                   </div>
+                  {config?.paymentsEnabled && (
+                    <div>
+                      <label htmlFor="customer-email" className="sr-only">Email for payment receipt</label>
+                      <input
+                        id="customer-email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="Email (for your payment receipt)"
+                        value={customerEmail}
+                        onChange={(e) => setCustomerEmail(e.target.value)}
+                        className="w-full px-3 py-2 text-xs rounded-lg border border-[#DFCEBC] bg-[#FAF7F2] focus:outline-none focus:border-[#D4AF37]"
+                      />
+                    </div>
+                  )}
                   <div>
+                    <label htmlFor="delivery-address" className="sr-only">Delivery address</label>
                     <textarea
+                      id="delivery-address"
+                      required
+                      autoComplete="street-address"
                       rows={2}
                       placeholder="Delivery Address (City, State, Street) *"
                       value={deliveryAddress}
@@ -843,16 +990,36 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                   </div>
                 </div>
 
+                {orderError && (
+                  <p role="alert" className="text-[11px] text-amber-900 bg-amber-50 border border-amber-300 rounded-lg p-2.5 leading-snug">
+                    {orderError}
+                  </p>
+                )}
+
+                {config?.paymentsEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => handlePlaceOrder(true)}
+                    disabled={submitting}
+                    className="w-full py-3 rounded-lg bg-[#2D1B11] text-[#F9E498] font-sans-modern font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:bg-[#442718] active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                  >
+                    <ShieldCheck className="w-4 h-4" aria-hidden="true" />
+                    <span>{submitting ? 'Placing order…' : 'Pay online now (Paystack)'}</span>
+                  </button>
+                )}
+
                 <button
-                  onClick={handleCheckoutWhatsApp}
-                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#2A1810] font-sans-modern font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+                  type="button"
+                  onClick={() => handlePlaceOrder(false)}
+                  disabled={submitting}
+                  className="w-full py-3 rounded-lg bg-gradient-to-r from-[#D4AF37] to-[#B89228] text-[#2A1810] font-sans-modern font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-md hover:brightness-105 active:scale-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <MessageCircle className="w-4 h-4 fill-current" />
-                  <span>Send Order to WhatsApp (08137989405)</span>
+                  <MessageCircle className="w-4 h-4 fill-current" aria-hidden="true" />
+                  <span>{submitting ? 'Placing order…' : 'Place Order & Send on WhatsApp'}</span>
                 </button>
 
                 <p className="text-[10px] text-center text-[#8F6A1E] font-sans-modern">
-                  Direct salon order processing • Pay via Bank Transfer on confirmation
+                  Your order is saved with the salon • Pay by bank transfer on confirmation
                 </p>
               </div>
             )}
@@ -863,12 +1030,20 @@ export const ProductShop: React.FC<ProductShopProps> = ({
       {/* Product Detail Modal */}
       {selectedProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg bg-[#FAF7F2] border border-[#D4AF37]/50 rounded-2xl overflow-hidden shadow-2xl text-[#2D1B11]">
+          <div
+            ref={productDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="product-modal-title"
+            className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto bg-[#FAF7F2] border border-[#D4AF37]/50 rounded-2xl shadow-2xl text-[#2D1B11] focus:outline-none"
+          >
             <button
-              onClick={() => setSelectedProductModal(null)}
+              type="button"
+              onClick={closeProductModal}
+              aria-label="Close product details"
               className="absolute top-4 right-4 z-10 p-1.5 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4" aria-hidden="true" />
             </button>
 
             <div className="relative h-64 bg-[#2D1B11]">
@@ -882,7 +1057,7 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                 <span className="text-[10px] uppercase tracking-widest text-[#D4AF37] font-semibold font-sans-modern">
                   {selectedProductModal.category} • {selectedProductModal.volume}
                 </span>
-                <h3 className="font-serif-luxury text-xl font-bold text-white">
+                <h3 id="product-modal-title" className="font-serif-luxury text-xl font-bold text-white">
                   {selectedProductModal.name}
                 </h3>
               </div>
@@ -916,14 +1091,16 @@ export const ProductShop: React.FC<ProductShopProps> = ({
                 </div>
 
                 <button
+                  type="button"
+                  disabled={!selectedProductModal.inStock}
                   onClick={() => {
                     addToCart(selectedProductModal);
                     setSelectedProductModal(null);
                     setIsCartOpen(true);
                   }}
-                  className="px-5 py-2.5 rounded-full bg-[#2D1B11] text-[#F9E498] text-xs font-sans-modern font-bold hover:bg-[#442718] transition-colors cursor-pointer"
+                  className="px-5 py-2.5 rounded-full bg-[#2D1B11] text-[#F9E498] text-xs font-sans-modern font-bold hover:bg-[#442718] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Add to Bag & Checkout
+                  {selectedProductModal.inStock ? 'Add to Bag & Checkout' : 'Out of stock'}
                 </button>
               </div>
             </div>

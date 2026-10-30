@@ -121,7 +121,7 @@ export interface BookingPayload {
   payDeposit?: boolean;
 }
 
-export type ServerBooking = AppointmentBooking & { paymentStatus?: 'unpaid' | 'paid'; depositAmount?: number; adminNote?: string };
+export type ServerBooking = AppointmentBooking;
 
 export interface OrderPayload {
   customerName: string;

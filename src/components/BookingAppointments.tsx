@@ -24,6 +24,11 @@ import { CustomStyleInspoUpload } from './CustomStyleInspoUpload';
 import { BookingChatInterface } from './BookingChatInterface';
 import { HappyNewMonthModal } from './HappyNewMonthModal';
 import { getDueMaintenanceNotifications, getSamplePastAppointments } from '../utils/maintenance';
+import { api, ApiError, type Availability, type RewardView } from '../api/client';
+import { useSite } from '../api/SiteProvider';
+import { ClientSignIn } from './ClientSignIn';
+import { DEFAULT_BASE_PRICE, SERVICE_BASE_PRICES } from '../utils/pricing';
+import { trackEvent } from '../utils/analytics';
 import {
   checkNewMonthEligibility,
   hasSeenCurrentMonthGreeting,
@@ -31,12 +36,11 @@ import {
 } from '../utils/happyNewMonth';
 import {
   getActiveReferralCode,
-  createReferralRewardsOnBooking,
   getTimeRemaining,
   extractReferralCodeFromInput,
 } from '../utils/referral';
 import { PRODUCTS_SHOP_DATA } from '../data/flyerData';
-import { ReferralDiscountReward, ProductShopItem } from '../types';
+import { ProductShopItem } from '../types';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -84,13 +88,16 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
   onOpenReferralModal,
   onNavigateToShopWithWig,
 }) => {
-  // Available dates: next 14 days
-  const today = new Date();
-  const availableDates = Array.from({ length: 14 }, (_, i) => {
+  const { config, sessionToken } = useSite();
+
+  // Bookable dates: the next 3 weeks, with the salon's closed weekdays and blocked dates greyed out.
+  const availableDates = Array.from({ length: 21 }, (_, i) => {
     const d = new Date();
-    d.setDate(today.getDate() + i + 1);
+    d.setDate(d.getDate() + i + 1);
+    const iso = d.toLocaleDateString('en-CA'); // local YYYY-MM-DD; toISOString() would shift the day for UTC+1
     return {
-      iso: d.toISOString().split('T')[0],
+      iso,
+      closed: !!config && (config.closedWeekdays.includes(d.getDay()) || config.blockedDates.includes(iso)),
       dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
       dayNumber: d.getDate(),
       month: d.toLocaleDateString('en-US', { month: 'short' }),
@@ -150,6 +157,39 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
   const [selectedTime, setSelectedTime] = useState<string>(TIME_SLOTS[0]);
   const [selectedAddOns, setSelectedAddOns] = useState<AddOnOption[]>([]);
 
+  // Live availability for the chosen date (slots already taken by the selected stylist, closed days).
+  const [availability, setAvailability] = useState<Availability | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAvailability(null);
+    api
+      .availability(selectedDate)
+      .then((a) => !cancelled && setAvailability(a))
+      .catch(() => undefined); // offline: leave every slot selectable, the server re-checks on submit
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedDate]);
+
+  const isSlotTaken = (slot: string) =>
+    !!availability?.taken.some((t) => t.timeSlot === slot && t.stylist === selectedStylist);
+
+  // Keep the selection valid when config (closed days) or availability changes.
+  useEffect(() => {
+    if (availableDates.find((d) => d.iso === selectedDate)?.closed) {
+      const firstOpen = availableDates.find((d) => !d.closed);
+      if (firstOpen) setSelectedDate(firstOpen.iso);
+    }
+  }, [config]);
+
+  useEffect(() => {
+    if (availability && isSlotTaken(selectedTime)) {
+      const free = TIME_SLOTS.find((slot) => !isSlotTaken(slot));
+      if (free) setSelectedTime(free);
+    }
+  }, [availability, selectedStylist]);
+
   // Client Details
   const [clientName, setClientName] = useState<string>('');
   const [clientPhone, setClientPhone] = useState<string>('');
@@ -164,10 +204,13 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
     return !!getActiveReferralCode();
   });
   const [earnedReferralReward, setEarnedReferralReward] = useState<{
-    clientReward: ReferralDiscountReward;
-    referrerReward: ReferralDiscountReward;
-    mostExpensiveWig: ProductShopItem;
+    reward: RewardView;
+    wig: ProductShopItem | undefined;
   } | null>(null);
+  const [referralNotice, setReferralNotice] = useState<string>('');
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [bookingError, setBookingError] = useState<string>('');
+  const [payDeposit, setPayDeposit] = useState<boolean>(false);
   const [copiedRewardCode, setCopiedRewardCode] = useState<string | null>(null);
   const [rewardCountdown, setRewardCountdown] = useState<string>('');
 
@@ -176,7 +219,11 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
     if (!earnedReferralReward) return;
 
     const updateTimer = () => {
-      const remaining = getTimeRemaining(earnedReferralReward.clientReward.expiresAt);
+      if (!earnedReferralReward.reward.expiresAt) {
+        setRewardCountdown('');
+        return;
+      }
+      const remaining = getTimeRemaining(earnedReferralReward.reward.expiresAt);
       if (remaining.isExpired) {
         setRewardCountdown('Expired');
       } else {
@@ -239,36 +286,70 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
     }
   };
 
-  // Load bookings from localStorage (or populate sample past appointments for immediate testing)
+  // This device's saved bookings, merged with the server history when the client is signed in.
   useEffect(() => {
+    const sampleIds = new Set(getSamplePastAppointments().map((b) => b.id)); // purge demo data saved by older versions
+    let local: AppointmentBooking[] = [];
     try {
-      const stored = localStorage.getItem('rossybraids_bookings');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setPastBookings(parsed);
-        } else {
-          const sample = getSamplePastAppointments();
-          setPastBookings(sample);
-          localStorage.setItem('rossybraids_bookings', JSON.stringify(sample));
-        }
-      } else {
-        const sample = getSamplePastAppointments();
-        setPastBookings(sample);
-        localStorage.setItem('rossybraids_bookings', JSON.stringify(sample));
-      }
+      const parsed = JSON.parse(localStorage.getItem('rossybraids_bookings') || '[]');
+      if (Array.isArray(parsed)) local = parsed.filter((b: AppointmentBooking) => !sampleIds.has(b.id));
     } catch {
-      // Ignore
+      // corrupt cache: start empty
     }
-  }, []);
+    setPastBookings(local);
+
+    if (!sessionToken) return;
+    let cancelled = false;
+    api
+      .myBookings(sessionToken)
+      .then((server) => {
+        if (cancelled) return;
+        const merged = [...server, ...local.filter((l) => !server.some((b) => b.id === l.id))];
+        setPastBookings(merged);
+        try {
+          localStorage.setItem('rossybraids_bookings', JSON.stringify(merged));
+        } catch {
+          // ignore
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionToken]);
 
   const handleUpdatePastBookings = (updated: AppointmentBooking[]) => {
+    // Persist maintenance flag changes to the server when signed in.
+    if (sessionToken) {
+      for (const b of updated) {
+        const before = pastBookings.find((x) => x.id === b.id);
+        if (!before) continue;
+        if (
+          before.maintenanceDismissed !== b.maintenanceDismissed ||
+          before.isMaintenanceScheduled !== b.isMaintenanceScheduled
+        ) {
+          api
+            .patchMyBooking(sessionToken, b.id, {
+              maintenanceDismissed: !!b.maintenanceDismissed,
+              isMaintenanceScheduled: !!b.isMaintenanceScheduled,
+              lastMaintenanceScheduledDate: b.lastMaintenanceScheduledDate,
+            })
+            .catch(() => undefined);
+        }
+      }
+    }
     setPastBookings(updated);
     try {
       localStorage.setItem('rossybraids_bookings', JSON.stringify(updated));
     } catch {
       // Ignore
     }
+  };
+
+  const handleCancelBooking = async (id: string) => {
+    if (!sessionToken) throw new Error('Sign in with your phone number to cancel online, or message the salon on WhatsApp.');
+    const updated = await api.patchMyBooking(sessionToken, id, { status: 'cancelled' });
+    handleUpdatePastBookings(pastBookings.map((b) => (b.id === id ? updated : b)));
   };
 
   const handleScheduleMaintenanceFromHistory = (
@@ -307,18 +388,7 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
   const dueMaintenanceCount = dueMaintenanceList.length;
 
   // Compute Base and Dynamic Pricing
-  const serviceBasePrice =
-    selectedService.id === 'wigs-revamping'
-      ? 25000
-      : selectedService.id === 'boho-braids'
-      ? 35000
-      : selectedService.id === 'dreadlocks'
-      ? 20000
-      : selectedService.id === 'natural-hairstyling'
-      ? 18000
-      : selectedService.id === 'african-traditional'
-      ? 16000
-      : 15000;
+  const serviceBasePrice = SERVICE_BASE_PRICES[selectedService.id] ?? DEFAULT_BASE_PRICE;
 
   const subtypeModifier = pinnedSubtype?.priceModifier || 0;
   const sizeModifier = selectedSize?.priceModifier || 0;
@@ -342,101 +412,9 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
     }
   };
 
-  const handleConfirmBooking = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientName.trim() || !clientPhone.trim()) {
-      return;
-    }
-
-    if (locationType === 'home_service') {
-      if (!homeAddress.trim() || !socialHandle.trim()) {
-        alert('Please provide your residential address and social media handle for home service stylist safety verification.');
-        return;
-      }
-    }
-
-    const homeDetails: HomeServiceDetails | undefined =
-      locationType === 'home_service'
-        ? {
-            address: homeAddress.trim(),
-            areaZone: selectedLocationTier.name,
-            landmark: homeLandmark.trim(),
-            socialHandle: socialHandle.trim(),
-            alternateContactName: altContactName.trim(),
-            alternateContactPhone: altContactPhone.trim(),
-            residenceType: residenceType,
-            estimatedHomeFee: selectedLocationTier.fee,
-          }
-        : undefined;
-
-    const newBooking: AppointmentBooking = {
-      id: `RB-${Date.now().toString().slice(-6)}`,
-      serviceId: selectedService.id,
-      serviceName: selectedService.name,
-      stylist: selectedStylist,
-      date: selectedDate,
-      timeSlot: selectedTime,
-      clientName: clientName.trim(),
-      clientPhone: clientPhone.trim(),
-      clientEmail: clientEmail.trim(),
-      notes: hairNotes.trim(),
-      selectedSubtype: pinnedSubtype?.name,
-      selectedSize: selectedSize?.name,
-      selectedLength: selectedLength?.name,
-      locationType,
-      homeServiceDetails: homeDetails,
-      addOns: selectedAddOns.map((a) => a.name),
-      totalPrice: estimatedTotal,
-      createdAt: new Date().toISOString(),
-      status: 'confirmed',
-      customInspoMedia: customInspoMedia || undefined,
-      customInspoNotes: customInspoMedia?.notes || undefined,
-    };
-
-    const updated = [newBooking, ...pastBookings];
-    setPastBookings(updated);
-    try {
-      localStorage.setItem('rossybraids_bookings', JSON.stringify(updated));
-    } catch {
-      // Ignore
-    }
-
-    setConfirmedBooking(newBooking);
-
-    // Process referral reward generation if referral code entered
-    let generatedReferralResult: {
-      clientReward: ReferralDiscountReward;
-      referrerReward: ReferralDiscountReward;
-      mostExpensiveWig: ProductShopItem;
-    } | null = null;
-
-    const rawRefCode = extractReferralCodeFromInput(referralCodeInput);
-    if (rawRefCode) {
-      const result = createReferralRewardsOnBooking({
-        bookingId: newBooking.id,
-        serviceName: newBooking.serviceName,
-        clientName: clientName.trim(),
-        clientPhone: clientPhone.trim(),
-        referralCodeUsed: rawRefCode,
-        products: PRODUCTS_SHOP_DATA,
-      });
-      if (result) {
-        generatedReferralResult = result;
-        setEarnedReferralReward(result);
-      }
-    }
-
-    // Celebratory confetti
-    confetti({
-      particleCount: 85,
-      spread: 75,
-      origin: { y: 0.6 },
-      colors: ['#D4AF37', '#FAF7F2', '#2D1B11', '#E5C158'],
-    });
-
-    // Prepare rich WhatsApp confirmation message
-    const formattedDate =
-      availableDates.find((d) => d.iso === selectedDate)?.full || selectedDate;
+  /** Opens the pre-filled WhatsApp confirmation to the salon. `reference` is the server booking id. */
+  const openWhatsAppConfirmation = (reference: string, rewardCode?: string) => {
+    const formattedDate = availableDates.find((d) => d.iso === selectedDate)?.full || selectedDate;
     const addOnsText =
       selectedAddOns.length > 0
         ? `\n• Scalp & Hair Add-ons: ${selectedAddOns.map((a) => a.name).join(', ')}`
@@ -451,13 +429,10 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
         `• (I will also share this media in our direct WhatsApp chat)`
       : '';
 
-    const referralText = generatedReferralResult
-      ? `\n\n👑 *VIP REFERRAL REWARD ACTIVATED (Strict 3-Day Window):*\n` +
-        `• Booked using Referral Code: ${rawRefCode}\n` +
-        `• Welcome Client Reward Code (25% OFF): ${generatedReferralResult.clientReward.code}\n` +
-        `• Referrer Royalty Reward Code (25% OFF): ${generatedReferralResult.referrerReward.code}\n` +
-        `• Strictly for Flagship Wig: ${generatedReferralResult.mostExpensiveWig.name}\n` +
-        `• Expiry: Strictly valid for 72 hours (3 days)`
+    const referralText = rewardCode
+      ? `\n\n👑 *VIP REFERRAL REWARD:*\n` +
+        `• Booked using Referral Code: ${extractReferralCodeFromInput(referralCodeInput)}\n` +
+        `• My 25% OFF flagship wig code: ${rewardCode} (unlocks when my booking is confirmed, valid 72 hours)`
       : '';
 
     const styleDetailText = `\n• Hairstyle: ${selectedService.name}${
@@ -481,7 +456,7 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
 
     const message = encodeURIComponent(
       `Hello Rose / RossyBraids! 👑✨\nI would like to confirm my hair booking:\n\n` +
-        `• Booking Reference: ${newBooking.id}\n` +
+        `• Booking Reference: ${reference}\n` +
         `• Client Name: ${clientName}\n` +
         `• WhatsApp / Phone: ${clientPhone}\n` +
         styleDetailText +
@@ -498,6 +473,108 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
     );
 
     window.open(`https://wa.me/${BRAND_DATA.whatsappRaw}?text=${message}`, '_blank');
+  };
+
+  const depositRequired = !!config?.requireDeposit;
+  const depositOffered = !!config?.paymentsEnabled;
+  const depositAmount = config ? Math.round((estimatedTotal * config.depositPercent) / 100) : 0;
+
+  const handleConfirmBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setBookingError('');
+    setReferralNotice('');
+
+    if (!clientName.trim() || !clientPhone.trim()) {
+      setBookingError('Please enter your name and phone number.');
+      return;
+    }
+    if (locationType === 'home_service' && (!homeAddress.trim() || !socialHandle.trim())) {
+      setBookingError('Please provide your residential address and social media handle for home service stylist safety verification.');
+      return;
+    }
+
+    // Link-only inspiration has no file to upload, so it travels in the notes instead.
+    const hasUpload = !!customInspoMedia?.dataUrl?.startsWith('data:');
+    const notes = [hairNotes.trim(), !hasUpload && customInspoMedia?.externalLink ? `Inspo link: ${customInspoMedia.externalLink}` : '']
+      .filter(Boolean)
+      .join('\n');
+
+    setSubmitting(true);
+    try {
+      const { booking, referral, reward, payment } = await api.createBooking({
+        serviceId: selectedService.id,
+        subtypeId: pinnedSubtype?.id,
+        sizeId: selectedSize?.id,
+        lengthId: selectedLength?.id,
+        addOnIds: selectedAddOns.map((a) => a.id),
+        stylist: selectedStylist,
+        date: selectedDate,
+        timeSlot: selectedTime,
+        clientName: clientName.trim(),
+        clientPhone: clientPhone.trim(),
+        clientEmail: clientEmail.trim() || undefined,
+        notes: notes || undefined,
+        locationType,
+        homeService:
+          locationType === 'home_service'
+            ? {
+                tierId: selectedLocationTier.id,
+                address: homeAddress.trim(),
+                landmark: homeLandmark.trim(),
+                socialHandle: socialHandle.trim(),
+                alternateContactName: altContactName.trim(),
+                alternateContactPhone: altContactPhone.trim(),
+                residenceType,
+              }
+            : undefined,
+        referralCode: extractReferralCodeFromInput(referralCodeInput) || undefined,
+        inspo:
+          hasUpload && customInspoMedia
+            ? {
+                dataUrl: customInspoMedia.dataUrl,
+                fileName: customInspoMedia.fileName,
+                notes: customInspoMedia.notes,
+                externalLink: customInspoMedia.externalLink,
+              }
+            : undefined,
+        payDeposit: depositRequired || (depositOffered && payDeposit),
+      });
+
+      trackEvent('Booking Created', { service: booking.serviceId, value: booking.totalPrice });
+      handleUpdatePastBookings([booking, ...pastBookings.filter((b) => b.id !== booking.id)]);
+      setConfirmedBooking(booking);
+      if (reward) setEarnedReferralReward({ reward, wig: PRODUCTS_SHOP_DATA.find((p) => p.id === reward.productId) });
+      else setEarnedReferralReward(null);
+      if (!referral.applied && referral.reason) setReferralNotice(referral.reason);
+
+      // Deposit: hand over to Paystack; the return trip (?pay_ref=) confirms the payment.
+      if (payment) {
+        window.location.assign(payment.authorizationUrl);
+        return;
+      }
+
+      confetti({
+        particleCount: 85,
+        spread: 75,
+        origin: { y: 0.6 },
+        colors: ['#D4AF37', '#FAF7F2', '#2D1B11', '#E5C158'],
+      });
+      openWhatsAppConfirmation(booking.id, reward?.code);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 0) {
+        // Offline: the WhatsApp message still reaches Rose, but there is no booking record on the server.
+        setBookingError('We could not reach the booking server, so your request was sent by WhatsApp only. Please wait for Rose to confirm.');
+        openWhatsAppConfirmation('(sent offline)');
+      } else {
+        setBookingError(err instanceof ApiError ? err.message : 'Something went wrong. Please try again.');
+        if (err instanceof ApiError && err.status === 409) {
+          api.availability(selectedDate).then(setAvailability).catch(() => undefined);
+        }
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -656,12 +733,16 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
 
       {/* Sub-view switcher */}
       {activeSubTab === 'history' ? (
+        <>
+        <ClientSignIn className="mb-4" />
         <AppointmentHistory
           bookings={pastBookings}
+          onCancelBooking={handleCancelBooking}
           onScheduleMaintenance={handleScheduleMaintenanceFromHistory}
           onUpdateBookings={handleUpdatePastBookings}
           onSwitchToBookingTab={() => setActiveSubTab('book')}
         />
+        </>
       ) : activeSubTab === 'chat' ? (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-white/90 rounded-xl border border-[#DFCEBC] shadow-xs">
@@ -812,166 +893,112 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
           </div>
 
           <p className="text-xs text-[#E6D7C8] font-sans-modern">
-            A confirmation message has been initiated via WhatsApp to{' '}
-            <strong>{BRAND_DATA.whatsapp}</strong>. You will receive a direct response once our master stylist
+            Your request has been saved with the salon (status: <strong>{confirmedBooking.status}</strong>
+            {confirmedBooking.paymentStatus === 'paid' ? ', deposit paid' : ''}) and a WhatsApp message to{' '}
+            <strong>{BRAND_DATA.whatsapp}</strong> has been opened. You will receive a direct response once our master stylist
             verifies and secures your slot.
           </p>
 
-          {/* Unlocked Referral Rewards Card (Strict 3-Day Window) */}
+          {referralNotice && (
+            <p role="status" className="text-xs text-amber-200 font-sans-modern bg-amber-500/10 border border-amber-400/30 rounded-lg p-2.5">
+              {referralNotice}
+            </p>
+          )}
+
+          {/* Referral reward (unlocks when the salon confirms the booking, then a strict 72-hour window) */}
           {earnedReferralReward && (
             <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#1C0E07] via-[#2A1509] to-[#1C0E07] border-2 border-[#D4AF37] text-white shadow-2xl space-y-4 animate-fade-in">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D4AF37]/30">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#F5E6A3] text-[#2A1810] flex items-center justify-center shrink-0">
-                    <Crown className="w-5 h-5 fill-current" />
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-widest text-[#F5E6A3] block">
-                      VIP Referral Unlocked • Double Reward
-                    </span>
-                    <h4 className="font-serif-luxury text-base sm:text-lg font-bold text-white">
-                      25% OFF Flagship Luxury Wig Active!
-                    </h4>
-                  </div>
+              <div className="flex items-center gap-2.5 pb-3 border-b border-[#D4AF37]/30">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#D4AF37] to-[#F5E6A3] text-[#2A1810] flex items-center justify-center shrink-0">
+                  <Crown className="w-5 h-5 fill-current" />
                 </div>
-
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-200 text-xs font-semibold self-start sm:self-center">
-                  <Clock className="w-4 h-4 text-amber-300 animate-pulse" />
-                  <span>Strict 3-Day Window: {rewardCountdown || '72 Hours'}</span>
-                </div>
-              </div>
-
-              {/* Target Flagship Wig info */}
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-[#D4AF37]/30">
-                <img
-                  src={earnedReferralReward.mostExpensiveWig.image}
-                  alt={earnedReferralReward.mostExpensiveWig.name}
-                  referrerPolicy="no-referrer"
-                  className="w-14 h-14 rounded-lg object-cover border border-[#D4AF37]/40 shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="text-[10px] uppercase tracking-wider text-[#D4AF37] font-semibold">
-                    Eligible Flagship Product
-                  </div>
-                  <div className="text-xs font-bold text-white truncate">
-                    {earnedReferralReward.mostExpensiveWig.name}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="line-through text-[#DFCEBC]/70">
-                      ₦{earnedReferralReward.mostExpensiveWig.price.toLocaleString()}
-                    </span>
-                    <span className="text-emerald-400 font-bold">
-                      ₦{(earnedReferralReward.mostExpensiveWig.price * 0.75).toLocaleString()}
-                    </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
-                      Save ₦{(earnedReferralReward.mostExpensiveWig.price * 0.25).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Two codes: Client & Referrer */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Client's Code */}
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
-                  <span className="text-[11px] text-[#DFCEBC] block font-semibold">
-                    Your Welcome Discount Code (New Client):
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-[#F5E6A3] block">
+                    VIP Referral Reward Earned
                   </span>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-black/50 border border-[#D4AF37]/40 font-mono text-xs font-bold text-[#F5E6A3]">
-                    <span>{earnedReferralReward.clientReward.code}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(earnedReferralReward.clientReward.code);
-                        setCopiedRewardCode(earnedReferralReward.clientReward.code);
-                        setTimeout(() => setCopiedRewardCode(null), 2500);
-                      }}
-                      className="p-1 hover:text-white transition-colors cursor-pointer text-xs flex items-center gap-1"
-                    >
-                      {copiedRewardCode === earnedReferralReward.clientReward.code ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      <span className="text-[10px]">
-                        {copiedRewardCode === earnedReferralReward.clientReward.code ? 'Copied' : 'Copy'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Referrer's Code */}
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
-                  <span className="text-[11px] text-[#DFCEBC] block font-semibold">
-                    Your Friend's Unlocked Reward Code:
-                  </span>
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-black/50 border border-[#D4AF37]/40 font-mono text-xs font-bold text-[#F5E6A3]">
-                    <span>{earnedReferralReward.referrerReward.code}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(earnedReferralReward.referrerReward.code);
-                        setCopiedRewardCode(earnedReferralReward.referrerReward.code);
-                        setTimeout(() => setCopiedRewardCode(null), 2500);
-                      }}
-                      className="p-1 hover:text-white transition-colors cursor-pointer text-xs flex items-center gap-1"
-                    >
-                      {copiedRewardCode === earnedReferralReward.referrerReward.code ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      ) : (
-                        <Copy className="w-3.5 h-3.5" />
-                      )}
-                      <span className="text-[10px]">
-                        {copiedRewardCode === earnedReferralReward.referrerReward.code ? 'Copied' : 'Copy'}
-                      </span>
-                    </button>
-                  </div>
+                  <h4 className="font-serif-luxury text-base sm:text-lg font-bold text-white">
+                    25% OFF the Flagship Luxury Wig
+                  </h4>
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {earnedReferralReward.wig && (
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-black/40 border border-[#D4AF37]/30">
+                  <img
+                    src={earnedReferralReward.wig.image}
+                    alt={earnedReferralReward.wig.name}
+                    loading="lazy"
+                    className="w-14 h-14 rounded-lg object-cover border border-[#D4AF37]/40 shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-white truncate">{earnedReferralReward.wig.name}</div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="line-through text-[#DFCEBC]/70">₦{earnedReferralReward.reward.originalPrice.toLocaleString()}</span>
+                      <span className="text-emerald-400 font-bold">
+                        ₦{(earnedReferralReward.reward.originalPrice - earnedReferralReward.reward.discountAmount).toLocaleString()}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">
+                        Save ₦{earnedReferralReward.reward.discountAmount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-2">
+                <span className="text-[11px] text-[#DFCEBC] block font-semibold">Your welcome code:</span>
+                <div className="flex items-center justify-between p-2 rounded-lg bg-black/50 border border-[#D4AF37]/40 font-mono text-xs font-bold text-[#F5E6A3]">
+                  <span>{earnedReferralReward.reward.code}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(earnedReferralReward.reward.code);
+                      setCopiedRewardCode(earnedReferralReward.reward.code);
+                      setTimeout(() => setCopiedRewardCode(null), 2500);
+                    }}
+                    className="p-1 hover:text-white transition-colors cursor-pointer text-xs flex items-center gap-1"
+                  >
+                    {copiedRewardCode === earnedReferralReward.reward.code ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                    <span className="text-[10px]">{copiedRewardCode === earnedReferralReward.reward.code ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-amber-200 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 shrink-0" />
+                  {earnedReferralReward.reward.expiresAt
+                    ? `Time left: ${rewardCountdown || '72 hours'}`
+                    : 'Unlocks when Rose confirms your booking, then it is valid for 72 hours. Use it with the same phone number you booked with.'}
+                </p>
+              </div>
+
               <div className="flex flex-wrap gap-2.5 pt-1">
-                {onNavigateToShopWithWig ? (
+                {earnedReferralReward.wig && onNavigateToShopWithWig && (
                   <button
                     type="button"
-                    onClick={() =>
-                      onNavigateToShopWithWig(
-                        earnedReferralReward.mostExpensiveWig.id,
-                        earnedReferralReward.clientReward.code
-                      )
-                    }
+                    onClick={() => onNavigateToShopWithWig(earnedReferralReward.wig!.id, earnedReferralReward.reward.code)}
                     className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F5E6A3] text-[#2A1810] font-sans-modern font-bold text-xs hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
                   >
                     <Crown className="w-4 h-4 fill-current" />
-                    <span>Shop Flagship Wig & Apply 25% Off</span>
+                    <span>Shop Flagship Wig</span>
                   </button>
-                ) : onNavigateToShop ? (
-                  <button
-                    type="button"
-                    onClick={onNavigateToShop}
-                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#D4AF37] to-[#F5E6A3] text-[#2A1810] font-sans-modern font-bold text-xs hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
-                  >
-                    <Crown className="w-4 h-4 fill-current" />
-                    <span>Go to Wig Boutique</span>
-                  </button>
-                ) : null}
-
+                )}
                 <button
                   type="button"
                   onClick={() => {
-                    const notifyMsg = encodeURIComponent(
-                      `Hey babe! 👑✨ I just booked my appointment at RossyBraids using your referral link!\n\n` +
-                        `As promised, you've unlocked your exclusive 25% discount code for RossyBraids' most expensive luxury wig (${earnedReferralReward.mostExpensiveWig.name}):\n\n` +
-                        `🎟️ Your Code: ${earnedReferralReward.referrerReward.code}\n` +
-                        `⏳ Strict Expiry: Valid for 72 hours (3 days) only!\n\n` +
-                        `Check out the salon & boutique here: https://rossybraids.com`
+                    const msg = encodeURIComponent(
+                      `Hey! 👑✨ I just booked at RossyBraids using your referral code, thank you!\n\n` +
+                        `Once my booking is confirmed, your own 25% OFF code for their flagship luxury wig unlocks too. ` +
+                        `Open https://rossybraids.com, tap "Refer" and sign in with your phone number to see it (valid 72 hours after it unlocks).`
                     );
-                    window.open(`https://wa.me/?text=${notifyMsg}`, '_blank');
+                    window.open(`https://wa.me/?text=${msg}`, '_blank');
                   }}
                   className="px-4 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-sans-modern font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                 >
                   <MessageCircle className="w-4 h-4 fill-current" />
-                  <span>Notify Friend on WhatsApp</span>
+                  <span>Tell My Friend on WhatsApp</span>
                 </button>
               </div>
             </div>
@@ -1557,10 +1584,15 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
                       type="button"
                       key={item.iso}
                       onClick={() => setSelectedDate(item.iso)}
-                      className={`shrink-0 w-16 py-2.5 px-1 rounded-lg text-center border-2 transition-all duration-200 cursor-pointer ${
-                        isSelected
-                          ? 'border-[#D4AF37] bg-[#2D1B11] text-[#FAF7F2] shadow-md'
-                          : 'border-[#DFCEBC] bg-white text-[#2D1B11] hover:border-[#D4AF37]/60'
+                      disabled={item.closed}
+                      aria-pressed={isSelected}
+                      aria-label={`${item.full}${item.closed ? ' (unavailable)' : ''}`}
+                      className={`shrink-0 w-16 py-2.5 px-1 rounded-lg text-center border-2 transition-all duration-200 ${
+                        item.closed
+                          ? 'border-[#DFCEBC] bg-[#EFE8E2] text-[#9B8878] line-through cursor-not-allowed'
+                          : isSelected
+                          ? 'border-[#D4AF37] bg-[#2D1B11] text-[#FAF7F2] shadow-md cursor-pointer'
+                          : 'border-[#DFCEBC] bg-white text-[#2D1B11] hover:border-[#D4AF37]/60 cursor-pointer'
                       }`}
                     >
                       <span className="block text-[10px] font-sans-modern uppercase font-bold opacity-80">
@@ -1583,22 +1615,34 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
               <label className="block text-xs font-semibold text-[#6C4A32] uppercase tracking-wider mb-2 font-sans-modern">
                 Available Time Slots
               </label>
+              {availability?.closed && (
+                <p role="status" className="mb-2 text-xs text-red-700 font-sans-modern">{availability.reason}</p>
+              )}
+              {config?.banner && (
+                <p role="status" className="mb-2 text-xs text-[#8F6A1E] font-sans-modern">{config.banner}</p>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {TIME_SLOTS.map((slot) => {
                   const isSelected = selectedTime === slot;
+                  const taken = isSlotTaken(slot) || !!availability?.closed;
                   return (
                     <button
                       type="button"
                       key={slot}
                       onClick={() => setSelectedTime(slot)}
-                      className={`py-2 px-3 rounded-lg text-xs font-sans-modern font-medium border text-center transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-[#D4AF37] bg-[#D4AF37] text-[#2D1B11] font-bold shadow-sm'
-                          : 'border-[#DFCEBC] bg-white text-[#2D1B11] hover:bg-[#F5EFEB]'
+                      disabled={taken}
+                      aria-pressed={isSelected}
+                      className={`py-2 px-3 rounded-lg text-xs font-sans-modern font-medium border text-center transition-all ${
+                        taken
+                          ? 'border-[#DFCEBC] bg-[#EFE8E2] text-[#9B8878] line-through cursor-not-allowed'
+                          : isSelected
+                          ? 'border-[#D4AF37] bg-[#D4AF37] text-[#2D1B11] font-bold shadow-sm cursor-pointer'
+                          : 'border-[#DFCEBC] bg-white text-[#2D1B11] hover:bg-[#F5EFEB] cursor-pointer'
                       }`}
                     >
                       <Clock className="w-3 h-3 inline mr-1 text-[#8F6A1E]" />
                       {slot}
+                      {taken && !availability?.closed && <span className="block text-[10px] no-underline">Booked</span>}
                     </button>
                   );
                 })}
@@ -1947,17 +1991,46 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
               <span className="text-[10px] text-right text-[#DFCEBC] font-sans-modern">
                 Transparent pricing
                 <br />
-                Pay after service
+                {depositRequired ? 'Deposit secures slot' : 'Balance after service'}
               </span>
             </div>
 
-            {/* Submit / Confirm WhatsApp Button */}
+            {depositOffered && (
+              <label className="flex items-start gap-2 text-[11px] text-[#DFCEBC] font-sans-modern cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={depositRequired || payDeposit}
+                  disabled={depositRequired}
+                  onChange={(e) => setPayDeposit(e.target.checked)}
+                  className="mt-0.5 accent-[#D4AF37]"
+                />
+                <span>
+                  Pay a {config?.depositPercent}% deposit now (₦{depositAmount.toLocaleString()}) to secure this slot
+                  {depositRequired ? ' (required)' : ''}. Secure payment by Paystack.
+                </span>
+              </label>
+            )}
+
+            {bookingError && (
+              <p role="alert" className="text-xs text-red-200 bg-red-900/40 border border-red-400/40 rounded-lg p-2.5 font-sans-modern">
+                {bookingError}
+              </p>
+            )}
+
+            {/* Submit button: saves the booking with the salon, then opens the WhatsApp confirmation */}
             <button
               type="submit"
-              className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-[#D4AF37] via-[#F5E6A3] to-[#D4AF37] text-[#2D1B11] font-sans-modern font-bold text-xs uppercase tracking-wider shadow-lg hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              disabled={submitting}
+              className="w-full py-3 px-4 rounded-lg bg-gradient-to-r from-[#D4AF37] via-[#F5E6A3] to-[#D4AF37] text-[#2D1B11] font-sans-modern font-bold text-xs uppercase tracking-wider shadow-lg hover:brightness-105 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
             >
               <MessageCircle className="w-4 h-4 fill-current" />
-              <span>Confirm & Dispatch on WhatsApp</span>
+              <span>
+                {submitting
+                  ? 'Securing your slot…'
+                  : depositRequired || (depositOffered && payDeposit)
+                  ? 'Pay Deposit & Book'
+                  : 'Book & Confirm on WhatsApp'}
+              </span>
             </button>
 
             {/* Quick Live Chat Action */}
@@ -2002,8 +2075,13 @@ export const BookingAppointments: React.FC<BookingAppointmentsProps> = ({
 
       {/* Automated Sweet Happy New Month Modal */}
       <HappyNewMonthModal
+        data={newMonthData}
         isOpen={showNewMonthModal}
         onClose={() => setShowNewMonthModal(false)}
+        onBookAppointment={() => {
+          setShowNewMonthModal(false);
+          setActiveSubTab('book');
+        }}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { NewMonthCelebrationData, generateNewMonthClaimWhatsAppUrl } from '../utils/happyNewMonth';
 import confetti from 'canvas-confetti';
+import { useModalA11y } from '../hooks/useModalA11y';
 import {
   Sparkles,
   Heart,
@@ -39,6 +40,8 @@ export const HappyNewMonthModal: React.FC<HappyNewMonthModalProps> = ({
     }
   }, [isOpen]);
 
+  const dialogRef = useModalA11y(isOpen, onClose);
+
   if (!isOpen) return null;
 
   const handleCopyCode = () => {
@@ -48,8 +51,15 @@ export const HappyNewMonthModal: React.FC<HappyNewMonthModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Happy New Month greeting"
         className="relative w-full max-w-lg bg-gradient-to-b from-[#2D1B11] via-[#3A2215] to-[#25160E] text-white rounded-3xl border-2 border-[#D4AF37] shadow-2xl p-6 sm:p-8 space-y-5 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >

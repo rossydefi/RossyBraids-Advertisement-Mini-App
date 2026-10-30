@@ -44,11 +44,21 @@ export default defineConfig(() => {
           ],
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,jpg,svg,woff,woff2}'],
-        },
-        devOptions: {
-          enabled: true,
-          type: 'module',
+          // Precache the app shell only. Photos are cached on first view instead of all up front.
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//, /^\/admin/],
+          runtimeCaching: [
+            {
+              urlPattern: ({ request }) => request.destination === 'image',
+              handler: 'CacheFirst',
+              options: { cacheName: 'images', expiration: { maxEntries: 80, maxAgeSeconds: 60 * 60 * 24 * 30 } },
+            },
+            {
+              urlPattern: /^\/api\/(config|reviews)$/,
+              handler: 'NetworkFirst',
+              options: { cacheName: 'api-public', networkTimeoutSeconds: 4 },
+            },
+          ],
         },
       }),
     ],
@@ -58,11 +68,7 @@ export default defineConfig(() => {
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
-      watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };
 });

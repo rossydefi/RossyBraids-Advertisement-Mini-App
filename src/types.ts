@@ -1,6 +1,6 @@
 export type FlyerFormat = 'portrait' | 'square' | 'story';
 export type FlyerTheme = 'nude-luxury' | 'mocha-velvet' | 'warm-ivory';
-export type ActiveTab = 'flyer' | 'booking' | 'shop' | 'gallery' | 'referral';
+export type ActiveTab = 'home' | 'flyer' | 'booking' | 'shop' | 'gallery' | 'referral';
 
 export interface StyleSubtype {
   id: string;
@@ -112,6 +112,10 @@ export interface AppointmentBooking {
   maintenanceDismissed?: boolean;
   customInspoMedia?: CustomInspoMedia;
   customInspoNotes?: string;
+  /** Set by the server */
+  paymentStatus?: 'unpaid' | 'paid';
+  depositAmount?: number;
+  adminNote?: string;
 }
 
 export interface CustomInspoMedia {

@@ -2,6 +2,7 @@ import React from 'react';
 import { ServiceItem } from '../types';
 import { BRAND_DATA } from '../data/flyerData';
 import { X, Check, Calendar, Phone, Sparkles } from 'lucide-react';
+import { useModalA11y } from '../hooks/useModalA11y';
 
 interface ServiceDetailModalProps {
   service: ServiceItem | null;
@@ -14,6 +15,8 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
   onClose,
   onBookOnline,
 }) => {
+  const dialogRef = useModalA11y(!!service, onClose);
+
   if (!service) return null;
 
   const whatsappMessage = encodeURIComponent(
@@ -21,8 +24,15 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in"
+      onClick={onClose}
+    >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={service.name}
         className="relative w-full max-w-lg bg-[#FAF7F2] border border-[#D4AF37]/50 rounded-lg shadow-2xl overflow-hidden text-[#2A1810]"
         onClick={(e) => e.stopPropagation()}
       >
