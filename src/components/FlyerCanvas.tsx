@@ -14,13 +14,13 @@ interface FlyerCanvasProps {
 }
 
 /** The six services shown on the flyer: just a photo and a name each. */
-const TILES: { id: string; name: string; image: string; alt: string }[] = [
-  { id: 'wigs-revamping', name: 'Wigs & Revamping', image: IMAGES.heroBoneStraight, alt: 'Sleek bone-straight luxury wig' },
-  { id: 'boho-braids', name: 'Boho Braids', image: IMAGES.bohoBraids, alt: 'Boho braids with soft curls' },
-  { id: 'dreadlocks', name: 'Dreadlocks', image: IMAGES.dreadlocks, alt: 'Neat dreadlocks with gold cuffs' },
-  { id: 'natural-hairstyling', name: 'Natural Hairstyling', image: IMAGES.fluffyTwists, alt: 'Fluffy natural twists' },
-  { id: 'african-traditional', name: 'African Hairstyles', image: IMAGES.africanTraditional, alt: 'Traditional African hair threading' },
-  { id: 'hair-treatment-products', name: 'Hair Products', image: IMAGES.products, alt: 'Hair care products and satin scrunchies' },
+const TILES: { id: string; name: string; image: string; alt: string; pos: string }[] = [
+  { id: 'wigs-revamping', name: 'Wigs & Revamping', image: IMAGES.heroBoneStraight, alt: 'Sleek bone-straight luxury wig', pos: '50% 0%' },
+  { id: 'boho-braids', name: 'Boho Braids', image: IMAGES.bohoBraids, alt: 'Boho braids with soft curls', pos: '50% 22%' },
+  { id: 'dreadlocks', name: 'Dreadlocks', image: IMAGES.dreadlocks, alt: 'Neat dreadlocks with gold cuffs', pos: '50% 22%' },
+  { id: 'natural-hairstyling', name: 'Natural Hairstyling', image: IMAGES.fluffyTwists, alt: 'Fluffy natural twists', pos: '50% 25%' },
+  { id: 'african-traditional', name: 'African Hairstyles', image: IMAGES.africanTraditional, alt: 'Traditional African hair threading', pos: '50% 20%' },
+  { id: 'hair-treatment-products', name: 'Hair Products', image: IMAGES.products, alt: 'Hair care products and satin scrunchies', pos: '50% 65%' },
 ];
 
 const CONTACTS = [
@@ -42,7 +42,10 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({ format, theme, onSelec
     story: 'w-full max-w-[540px] min-w-[420px] aspect-[9/16]',
   }[format];
 
-  const gridClass = format === 'story' ? 'grid-cols-2 grid-rows-3' : 'grid-cols-3 grid-rows-2';
+  // Wigs & Revamping is the featured service: a large tile, with the other five around it.
+  const gridClass = format === 'story' ? 'grid-cols-2 grid-rows-6' : 'grid-cols-3 grid-rows-3';
+  const featuredClass = format === 'story' ? 'col-span-2 row-span-3' : 'col-span-2 row-span-2';
+  const lastTileClass = format === 'story' ? 'col-span-2' : '';
 
   return (
     <div
@@ -59,49 +62,35 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({ format, theme, onSelec
       <div className={`absolute inset-3 md:inset-4 border-2 ${style.frame} pointer-events-none z-20`} />
 
       {/* Header: logo with the slogan beneath it */}
-      <header className="relative z-10 pt-9 md:pt-11 px-6 flex flex-col items-center">
+      <header className="relative z-10 pt-7 md:pt-8 px-6 flex flex-col items-center">
         <RossyLogo
           variant={style.logoVariant}
-          size={format === 'story' ? 'md' : 'lg'}
+          size={format === 'square' ? 'sm' : 'md'}
           accentClass={style.logoAccent}
           restClass={style.logoRest}
+          slogan="Where Beauty Meets Craft."
+          sloganClass={`${format === 'story' ? 'text-[13px]' : 'text-base md:text-[17px]'} ${style.accent}`}
         />
-        <div className="mt-3 md:mt-4 flex items-center justify-center gap-3 md:gap-4">
-          <span className={`h-px w-8 md:w-16 bg-gradient-to-r from-transparent to-current ${style.accent}`} />
-          <span className={`text-[8px] leading-none ${style.accent}`} aria-hidden="true">◆</span>
-          <p
-            className={`font-serif-luxury italic font-semibold leading-none whitespace-nowrap ${
-              format === 'story' ? 'text-base' : 'text-xl md:text-[26px]'
-            } ${style.accent}`}
-            style={{ letterSpacing: '0.06em' }}
-          >
-            Where Beauty Meets Craft.
-          </p>
-          <span className={`text-[8px] leading-none ${style.accent}`} aria-hidden="true">◆</span>
-          <span className={`h-px w-8 md:w-16 bg-gradient-to-l from-transparent to-current ${style.accent}`} />
-        </div>
       </header>
 
-      {/* Our Premium Services: the photos live inside this panel */}
-      <main className="relative z-10 px-6 md:px-9 py-4 flex-1 min-h-0 flex flex-col justify-center">
-        <section className={`rounded-lg border ${style.panelBorder} ${style.panelBg} p-3 md:p-4 flex-1 min-h-0 flex flex-col`}>
-          <div className="flex items-center justify-center gap-3 mb-3 md:mb-4">
+      {/* Premium Salon & VIP Home Services: the photos live inside this panel */}
+      <main className="relative z-10 px-6 md:px-9 py-3 flex-1 min-h-0 flex flex-col justify-center">
+        <section className={`rounded-lg border ${style.panelBorder} ${style.panelBg} p-2.5 md:p-3 flex-1 min-h-0 flex flex-col`}>
+          <div className="flex items-center justify-center gap-3 mb-2.5 md:mb-3">
             <span className={`h-px w-6 md:w-14 bg-current ${style.accent}`} />
             <h2
               className={`font-cinzel font-extrabold uppercase whitespace-nowrap ${
-                format === 'story' ? 'tracking-[0.14em] text-xs' : 'tracking-[0.2em] text-sm md:text-lg'
+                format === 'story' ? 'tracking-[0.12em] text-[13px]' : 'tracking-[0.16em] text-sm md:text-lg'
               } ${style.textPrimary}`}
             >
-              Our Premium Services
+              Premium <span className={style.accent}>Salon &amp; VIP Home</span> Services
             </h2>
             <span className={`h-px w-6 md:w-14 bg-current ${style.accent}`} />
           </div>
-          <p className={`-mt-2 mb-3 md:mb-4 text-center font-sans-modern font-bold uppercase text-[9px] md:text-[11px] tracking-[0.28em] ${style.accent}`}>
-            Salon &amp; VIP Home Service
-          </p>
-
           <div className={`grid ${gridClass} gap-2 md:gap-3 flex-1 min-h-0`}>
-            {TILES.map((tile) => (
+            {TILES.map((tile, index) => {
+              const featured = index === 0;
+              return (
               <button
                 key={tile.id}
                 type="button"
@@ -109,43 +98,56 @@ export const FlyerCanvas: React.FC<FlyerCanvasProps> = ({ format, theme, onSelec
                   const service = SERVICES_DATA.find((s) => s.id === tile.id);
                   if (service && onSelectService) onSelectService(service);
                 }}
-                className={`relative group overflow-hidden rounded-md h-full w-full bg-[#1E110A] text-left cursor-pointer`}
+                className={`relative group overflow-hidden rounded-md h-full w-full bg-[#1E110A] text-left cursor-pointer ${
+                  featured ? `${featuredClass} ring-2 ring-[#D4AF37]` : index === TILES.length - 1 ? lastTileClass : ''
+                }`}
                 aria-label={tile.name}
               >
                 <img
                   src={tile.image}
                   alt={tile.alt}
-                  className="absolute inset-0 w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
+                  style={{ objectPosition: tile.id === 'wigs-revamping' && format !== 'square' ? '50% 10%' : format === 'story' && tile.id === 'hair-treatment-products' ? '50% 40%' : tile.pos }}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
-                <span className="absolute bottom-0 inset-x-0 px-2 pb-2 md:pb-3 text-center font-serif-luxury font-bold text-[#FFFDF8] text-sm md:text-xl leading-tight drop-shadow-md">
-                  {tile.name}
-                </span>
+                {featured && <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />}
+                {featured ? (
+                  <div className="absolute bottom-0 inset-x-0 px-2 pb-3 md:pb-5 text-center drop-shadow-md">
+                    <span className="block font-serif-luxury font-bold text-[#FFFDF8] leading-tight text-xl md:text-4xl">{tile.name}</span>
+                    <span className="mt-1 block font-sans-modern font-semibold uppercase tracking-[0.18em] text-[#F5E6A3] text-[8px] md:text-[11px]">
+                      Frontals · Closures · Custom Colour · Revamp
+                    </span>
+                  </div>
+                ) : (
+                  <span className={`absolute bottom-0 inset-x-0 bg-black/55 px-2 py-0.5 md:py-1 text-center font-serif-luxury font-bold text-[#FFFDF8] text-xs leading-tight ${format === 'portrait' ? 'md:text-lg' : 'md:text-[15px]'}`}>
+                    {tile.name}
+                  </span>
+                )}
               </button>
-            ))}
+              );
+            })}
           </div>
         </section>
       </main>
 
       {/* Footer: contacts under "Direct Booking & Enquiries", plus the QR to the website */}
-      <footer className="relative z-10 px-6 md:px-9 pb-8 md:pb-10">
-        <div className={`rounded-lg px-4 md:px-6 py-4 md:py-5 ${style.barBg}`}>
+      <footer className="relative z-10 px-6 md:px-9 pb-7 md:pb-8">
+        <div className={`rounded-lg px-4 md:px-6 py-2.5 md:py-3 ${style.barBg}`}>
           <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 space-y-2.5">
+            <div className="min-w-0 space-y-2">
               <p className={`font-cinzel font-bold uppercase whitespace-nowrap text-[#F5E6A3] ${format === 'story' ? 'tracking-[0.12em] text-[10px]' : 'tracking-[0.2em] text-[10px] md:text-sm'}`}>
                 Direct Booking &amp; Enquiries
               </p>
-              <ul className="space-y-1.5 font-sans-modern text-xs md:text-sm">
+              <ul className={`${format === 'square' ? 'space-y-0.5' : 'space-y-1.5'} font-sans-modern text-xs md:text-sm`}>
                 {CONTACTS.map(({ label, value, Icon, color }) => (
                   <li key={label} className="flex items-center gap-2">
                     <Icon className={`w-3.5 h-3.5 md:w-4 md:h-4 shrink-0 ${color}`} aria-hidden="true" />
-                    <span className="w-[4.6rem] md:w-20 shrink-0 opacity-70 text-[11px] md:text-xs">{label}</span>
+                    <span className="w-[4.6rem] md:w-20 shrink-0 opacity-90 text-[11px] md:text-xs">{label}</span>
                     <span className="font-semibold">{value}</span>
                   </li>
                 ))}
               </ul>
             </div>
-            <ScanToBookQR url={BRAND_DATA.website} size={format === 'story' ? 84 : 112} variant="glass" />
+            <ScanToBookQR url={BRAND_DATA.website} size={format === 'story' ? 84 : format === 'square' ? 80 : 112} variant="glass" />
           </div>
         </div>
       </footer>

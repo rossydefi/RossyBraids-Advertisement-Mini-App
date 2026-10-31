@@ -42,6 +42,7 @@ beforeAll(async () => {
   proc = spawn('npx', ['tsx', '--import', './server/register-assets.mjs', 'server/index.ts'], {
     env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir, ADMIN_PASSWORD: 'test-pass', PAYSTACK_SECRET_KEY: '', TERMII_API_KEY: '', NODE_ENV: 'development' },
     stdio: 'ignore',
+    detached: true, // own process group, so teardown can stop npx AND the tsx server it starts
   });
   for (let i = 0; i < 80; i++) {
     try {
@@ -55,7 +56,11 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  proc?.kill('SIGKILL');
+  try {
+    if (proc?.pid) process.kill(-proc.pid, 'SIGKILL');
+  } catch {
+    proc?.kill('SIGKILL');
+  }
   fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
@@ -166,5 +171,80 @@ describe('client sign-in and reviews', () => {
     const pending = (await call('GET', '/admin/reviews?status=pending', undefined, token)).body;
     await call('PATCH', `/admin/reviews/${pending[0].id}`, { status: 'approved' }, token);
     expect((await call('GET', '/reviews')).body).toHaveLength(1);
+  });
+});
+
+describe('gallery', () => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  const upload = (type: string, token?: string) =>
+    fetch(BASE + '/admin/gallery/media', { method: 'POST', headers: { 'Content-Type': type, ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: png });
+
+  it('lets anyone read but only the owner change it', async () => {
+    expect((await call('GET', '/gallery')).status).toBe(200);
+    expect((await upload('image/png')).status).toBe(401);
+    expect((await call('POST', '/admin/gallery', { title: 'x', mediaUrl: '/uploads/a.png' })).status).toBe(401);
+    expect((await call('PATCH', '/admin/gallery/abc', { title: 'x' })).status).toBe(401);
+    expect((await call('DELETE', '/admin/gallery/abc')).status).toBe(401);
+  });
+
+  it('uploads, lists, edits and deletes a style', async () => {
+    const { token } = (await call('POST', '/admin/login', { password: 'test-pass' })).body;
+    expect((await upload('image/svg+xml', token)).status).toBe(415);
+    const up = await (await upload('image/png', token)).json();
+    expect(up.url).toMatch(/^\/uploads\/.+\.png$/);
+
+    const made = await call('POST', '/admin/gallery', { title: 'Boho braids', category: 'Boho Braids', tags: 'Knotless, Long', mediaUrl: up.url, serviceId: 'boho-braids' }, token);
+    expect(made.status).toBe(201);
+    expect(made.body.tags).toEqual(['knotless', 'long']);
+    expect((await call('GET', '/gallery')).body).toHaveLength(1);
+    expect((await fetch(`http://localhost:${PORT}${up.url}`)).status).toBe(200);
+
+    const edited = await call('PATCH', `/admin/gallery/${made.body.id}`, { title: 'Boho braids (updated)', featured: true }, token);
+    expect(edited.body.featured).toBe(true);
+    expect((await call('POST', '/admin/gallery', { title: 'bad', mediaUrl: 'https://evil.example/x.png' }, token)).status).toBe(400);
+
+    await call('DELETE', `/admin/gallery/${made.body.id}`, undefined, token);
+    expect((await call('GET', '/gallery')).body).toHaveLength(0);
+    await new Promise((r) => setTimeout(r, 200));
+    // In development a missing file falls through to the Vite page, so check it is no longer the image.
+    expect((await fetch(`http://localhost:${PORT}${up.url}`)).headers.get('content-type')).not.toContain('image/png');
+  });
+});
+
+describe('shop products', () => {
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+  it('only the owner can add or change products', async () => {
+    expect((await call('POST', '/admin/shop', { name: 'x' })).status).toBe(401);
+    expect((await call('PATCH', '/admin/shop/abc', { price: 1 })).status).toBe(401);
+    expect((await call('DELETE', '/admin/shop/abc')).status).toBe(401);
+  });
+
+  it('shows owner products to clients, prices them on the server and tracks stock', async () => {
+    const { token } = (await call('POST', '/admin/login', { password: 'test-pass' })).body;
+    const up = await (await fetch(BASE + '/admin/gallery/media', { method: 'POST', headers: { 'Content-Type': 'image/png', Authorization: `Bearer ${token}` }, body: png })).json();
+    const made = await call('POST', '/admin/shop', { name: 'Argan serum', category: 'Serums & Oils', price: 7500, stock: 3, imageUrl: up.url, benefits: 'Shine\nSoftness' }, token);
+    expect(made.status).toBe(201);
+    expect((await call('POST', '/admin/shop', { name: 'bad', category: 'Nope', price: 1, imageUrl: up.url }, token)).status).toBe(400);
+
+    const cfg = (await call('GET', '/config')).body;
+    expect(cfg.catalog).toHaveLength(1);
+    expect(cfg.catalog[0].benefits).toEqual(['Shine', 'Softness']);
+    expect(cfg.products.map((p: any) => p.id)).toEqual([made.body.id]);
+
+    const order = (q: number) => ({ customerName: 'Buyer', customerPhone: '08060000001', items: [{ productId: made.body.id, quantity: q }], price: 1 });
+    const placed = await call('POST', '/orders', order(2));
+    expect(placed.body.order.total).toBe(15000); // server price, client "price: 1" ignored
+    expect((await call('POST', '/orders', order(2))).status).toBe(409); // only 1 left
+
+    await call('PATCH', `/admin/shop/${made.body.id}`, { price: 9000 }, token);
+    expect((await call('POST', '/orders', order(1))).body.order.total).toBe(9000);
+
+    // cancelling puts stock back
+    await call('PATCH', `/admin/orders/${placed.body.order.id}`, { status: 'cancelled' }, token);
+    expect((await call('GET', '/admin/shop', undefined, token)).body[0].stock).toBe(2);
+
+    await call('DELETE', `/admin/shop/${made.body.id}`, undefined, token);
+    expect((await call('GET', '/config')).body.catalog).toBeUndefined();
   });
 });

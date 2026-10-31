@@ -62,6 +62,8 @@ export interface SiteConfig {
   requireDeposit: boolean;
   paymentsEnabled: boolean;
   products: { id: string; price: number; formattedPrice: string; inStock: boolean }[];
+  /** The owner's own products. When present the shop shows these instead of the bundled samples. */
+  catalog?: ProductShopItem[];
 }
 
 export interface Availability {
@@ -159,10 +161,25 @@ export interface PublicReview {
   verified: boolean;
 }
 
+export interface GalleryItem {
+  id: string;
+  title: string;
+  category: string;
+  tags: string[];
+  description: string;
+  mediaType: 'image' | 'video';
+  mediaUrl: string;
+  beforeUrl?: string;
+  serviceId?: string;
+  featured: boolean;
+  createdAt: string;
+}
+
 /* ------------------------------------------------------------- endpoints */
 
 export const api = {
   config: () => request<SiteConfig>('GET', '/config'),
+  gallery: () => request<GalleryItem[]>('GET', '/gallery'),
   availability: (date: string) => request<Availability>('GET', `/availability?date=${date}`),
 
   createBooking: (payload: BookingPayload) =>

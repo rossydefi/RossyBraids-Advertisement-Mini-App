@@ -42,7 +42,7 @@ export const ScanToBookQR: React.FC<ScanToBookQRProps> = ({
       <div className="flex items-center gap-1 mb-1">
         <Sparkles className="w-2.5 h-2.5 text-[#D4AF37]" />
         <span className="whitespace-nowrap font-cinzel text-[8.5px] md:text-[9.5px] font-bold tracking-[0.18em] uppercase text-[#AA7C11] leading-none">
-          Scan to Book
+          Book Online
         </span>
       </div>
 

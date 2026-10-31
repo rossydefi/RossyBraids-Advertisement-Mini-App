@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BRAND_DATA } from './data/flyerData';
+import { RossyLogo } from './components/RossyLogo';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { HomePage } from './components/HomePage';
 import { api } from './api/client';
@@ -9,16 +10,14 @@ import { getActiveReferralCode } from './utils/referral';
 import { getDueMaintenanceNotifications } from './utils/maintenance';
 import { useRoute, type Route } from './utils/router';
 import { trackEvent } from './utils/analytics';
+import { confettiBurst } from './utils/confetti';
 import {
-  Award,
   Calendar,
   CheckCircle2,
   Gift,
   Globe,
   Home as HomeIcon,
   Image as ImageIcon,
-  Info,
-  Phone,
   ShoppingBag,
 } from 'lucide-react';
 
@@ -53,7 +52,6 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
   const { t, lang, setLang } = useI18n();
   const { refreshConfig } = useSite();
   const [preselectedBookingServiceId, setPreselectedBookingServiceId] = useState<string | undefined>();
-  const [showBrandSpecs, setShowBrandSpecs] = useState(false);
   const [showReferModal, setShowReferModal] = useState(false);
   const [shopPrefilledCode, setShopPrefilledCode] = useState<string | undefined>();
   const [shopPreselectedWigId, setShopPreselectedWigId] = useState<string | undefined>();
@@ -116,14 +114,18 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
     navigate('booking');
   };
 
+  /** Confetti first, then the refer window a beat later so the burst is seen before the dialog covers it. */
+  const openReferWithBurst = (button: HTMLElement) => {
+    if (confettiBurst(button)) window.setTimeout(() => setShowReferModal(true), 450);
+    else setShowReferModal(true);
+  };
+
   const navItems: { route: Route; label: string; short: string; icon: React.ReactNode }[] = [
     { route: 'home', label: t('navHome'), short: t('navHome'), icon: <HomeIcon className="w-3.5 h-3.5" aria-hidden="true" /> },
     { route: 'booking', label: t('navBook'), short: t('navBookShort'), icon: <Calendar className="w-3.5 h-3.5" aria-hidden="true" /> },
     { route: 'shop', label: t('navShop'), short: t('navShopShort'), icon: <ShoppingBag className="w-3.5 h-3.5" aria-hidden="true" /> },
     { route: 'gallery', label: t('navGallery'), short: t('navGalleryShort'), icon: <ImageIcon className="w-3.5 h-3.5" aria-hidden="true" /> },
   ];
-
-  const whatsappHref = `https://wa.me/${BRAND_DATA.whatsappRaw}?text=Hello%20RossyBraids%2C%20I%20would%20like%20to%20book%20an%20appointment%20or%20make%20an%20inquiry!`;
 
   return (
     <div className="min-h-screen bg-[#140D08] text-[#FAF6F0] flex flex-col justify-between selection:bg-[#D4AF37]/30 selection:text-white pb-16 md:pb-0">
@@ -137,17 +139,17 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
       <header className="no-print border-b border-[#D4AF37]/20 bg-[#1E110A]/95 backdrop-blur-md sticky top-0 z-40 px-3 sm:px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
           <button type="button" onClick={() => navigate('home')} className="flex items-center gap-2.5 cursor-pointer group text-left" aria-label="RossyBraids home">
-            <span className="w-9 h-9 rounded-full border border-[#D4AF37]/60 bg-black/40 flex items-center justify-center text-[#D4AF37] font-cinzel font-bold text-base group-hover:border-[#D4AF37] transition-colors">
-              R
-            </span>
-            <span>
-              <span className="flex items-center gap-2">
-                <span className="font-cinzel text-sm sm:text-lg tracking-[0.08em] sm:tracking-[0.18em] uppercase font-bold text-[#F5E6A3]">RossyBraids</span>
-                <span className="hidden sm:inline-block text-[9px] uppercase font-sans-modern font-semibold px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30">
-                  Official Salon App
-                </span>
-              </span>
-              <span className="block text-[10px] sm:text-[11px] text-[#DFCEBC] italic font-serif-luxury line-clamp-1">“Where Beauty Meets Craft.”</span>
+            <RossyLogo
+              layout="inline"
+              size="xs"
+              variant="gold"
+              accentClass="text-[#D4AF37]"
+              restClass="text-[#F5E6A3]"
+              slogan="Where Beauty Meets Craft."
+              sloganClass="max-sm:hidden text-[10px] text-[#D4AF37]"
+            />
+            <span className="hidden 2xl:inline-block text-[9px] uppercase font-sans-modern font-semibold px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30">
+              Official Salon App
             </span>
           </button>
 
@@ -158,12 +160,13 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
                 type="button"
                 onClick={() => navigate(item.route)}
                 aria-current={route === item.route ? 'page' : undefined}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-sans-modern font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3 xl:px-4 py-1.5 rounded-full text-xs font-sans-modern font-semibold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                   route === item.route ? 'bg-[#D4AF37] text-[#2A1810] shadow-sm font-bold' : 'text-[#DFCEBC] hover:text-[#FAF6F0] hover:bg-white/5'
                 }`}
               >
-                {item.icon}
-                <span>{item.label}</span>
+                <span className="hidden lg:inline-flex">{item.icon}</span>
+                <span className="xl:hidden">{item.short}</span>
+                <span className="hidden xl:inline">{item.label}</span>
                 {item.route === 'booking' && dueMaintenanceCount > 0 && (
                   <span className="px-1.5 rounded-full bg-amber-500 text-black text-[9px] font-bold" title={`${dueMaintenanceCount} hair maintenance visit(s) due`}>
                     {dueMaintenanceCount} Due
@@ -176,13 +179,12 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
           <div className="flex items-center gap-1.5 sm:gap-2.5 text-xs">
             <button
               type="button"
-              onClick={() => setShowReferModal(true)}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-gradient-to-r from-[#D4AF37] to-[#F5E6A3] text-[#2D1B11] font-sans-modern font-bold hover:brightness-105 active:scale-95 transition-all shadow-sm cursor-pointer"
+              onClick={(e) => openReferWithBurst(e.currentTarget)}
+              className="gift-btn relative flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-[#F5E6A3] via-[#D4AF37] to-[#AA7C11] text-[#2D1B11] shadow-[0_0_14px_rgba(212,175,55,0.45)] hover:brightness-110 active:scale-90 transition-all cursor-pointer"
               title="Refer a friend and both earn 25% off our flagship luxury wig"
+              aria-label={t('navRefer')}
             >
-              <Gift className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
-              <span className="hidden sm:inline">{t('navRefer')}</span>
-              <span className="sm:hidden">{t('navReferShort')}</span>
+              <Gift className="w-[18px] h-[18px]" aria-hidden="true" />
             </button>
 
             <label className="hidden lg:flex items-center gap-1 text-[#DFCEBC]">
@@ -201,30 +203,6 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
             </label>
 
             <PWAInstallButton />
-
-            <a
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/40 text-[#25D366] transition-all font-sans-modern font-semibold"
-              aria-label="Chat on WhatsApp"
-              onClick={() => trackEvent('WhatsApp Click')}
-            >
-              <Phone className="w-3.5 h-3.5" aria-hidden="true" />
-              <span className="hidden lg:inline">{BRAND_DATA.whatsapp}</span>
-            </a>
-
-            <button
-              type="button"
-              onClick={() => setShowBrandSpecs(!showBrandSpecs)}
-              aria-expanded={showBrandSpecs}
-              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-[#DFCEBC] hover:text-white transition-all text-xs cursor-pointer"
-              title="Brand specs & information"
-              aria-label="Brand specs and information"
-            >
-              <Info className="w-3.5 h-3.5 text-[#D4AF37]" aria-hidden="true" />
-              <span className="hidden xl:inline">Specs</span>
-            </button>
           </div>
         </div>
       </header>
@@ -253,7 +231,7 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
       <main id="main" className="flex-1 flex flex-col items-center justify-start p-3 sm:p-6 lg:p-8">
         <Suspense fallback={<Loading />}>
           {route === 'home' || route === 'referral' ? (
-            <HomePage onBookService={handleBookService} onBook={() => navigate('booking')} />
+            <HomePage onBookService={handleBookService} onBook={() => navigate('booking')} onNavigate={navigate} />
           ) : null}
 
           {route === 'flyer' && <FlyerStudio onBookService={handleBookService} />}
@@ -290,42 +268,6 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
             </div>
           )}
         </Suspense>
-
-        {showBrandSpecs && (
-          <div className="no-print w-full max-w-4xl mt-8 p-5 bg-[#1E110A]/95 border border-[#D4AF37]/30 rounded-xl shadow-xl text-xs space-y-4 animate-fade-in">
-            <div className="flex items-center justify-between border-b border-[#D4AF37]/20 pb-3">
-              <div className="flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#D4AF37]" aria-hidden="true" />
-                <h2 className="font-cinzel text-sm font-bold uppercase tracking-wider text-[#F5E6A3]">RossyBraids Brand Specifications</h2>
-              </div>
-              <button type="button" onClick={() => setShowBrandSpecs(false)} className="text-[#DFCEBC] hover:text-white cursor-pointer">
-                ✕ Close
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5 p-3 rounded-lg bg-black/30 border border-white/5">
-                <span className="text-[#D4AF37] font-semibold uppercase tracking-wider block">Brand identity</span>
-                <p className="text-[#DFCEBC]">• <strong>Brand name:</strong> {BRAND_DATA.name}</p>
-                <p className="text-[#DFCEBC]">• <strong>Slogan:</strong> “{BRAND_DATA.slogan}”</p>
-                <p className="text-[#DFCEBC]">• <strong>App:</strong> Installable on iOS, Android and desktop.</p>
-              </div>
-              <div className="space-y-1.5 p-3 rounded-lg bg-black/30 border border-white/5">
-                <span className="text-[#D4AF37] font-semibold uppercase tracking-wider block">Core features</span>
-                <p className="text-[#DFCEBC]">1. Live booking calendar with stylist availability</p>
-                <p className="text-[#DFCEBC]">2. Hair-care shop with stock, cart and optional online payment</p>
-                <p className="text-[#DFCEBC]">3. Before &amp; After transformation gallery</p>
-                <p className="text-[#DFCEBC]">4. Referral rewards and 4-week maintenance reminders</p>
-              </div>
-              <div className="space-y-1.5 p-3 rounded-lg bg-black/30 border border-white/5">
-                <span className="text-[#D4AF37] font-semibold uppercase tracking-wider block">Salon contact</span>
-                <p className="text-[#DFCEBC]">• <strong>WhatsApp:</strong> {BRAND_DATA.whatsapp}</p>
-                <p className="text-[#DFCEBC]">• <strong>Instagram:</strong> <em>{BRAND_DATA.instagram}</em></p>
-                <p className="text-[#DFCEBC]">• <strong>Facebook:</strong> {BRAND_DATA.facebook}</p>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
 
       <nav aria-label="Main (mobile)" className="no-print fixed bottom-0 left-0 right-0 z-40 bg-[#1A0E08]/95 backdrop-blur-lg border-t border-[#D4AF37]/30 flex md:hidden items-center justify-around py-2 px-1">
@@ -350,7 +292,7 @@ function SiteShell({ route, navigate }: { route: Route; navigate: (r: Route) => 
         ))}
         <button
           type="button"
-          onClick={() => setShowReferModal(true)}
+          onClick={(e) => openReferWithBurst(e.currentTarget)}
           className="flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[11px] font-sans-modern cursor-pointer text-[#F5E6A3] hover:text-[#D4AF37]"
         >
           <Gift className="w-3.5 h-3.5 text-[#D4AF37]" aria-hidden="true" />

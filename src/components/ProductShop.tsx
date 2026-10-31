@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PRODUCTS_SHOP_DATA, BRAND_DATA } from '../data/flyerData';
+import { BRAND_DATA } from '../data/flyerData';
+import { useCatalog } from '../hooks/useCatalog';
 import { CartItem, ProductShopItem } from '../types';
 import {
   ShoppingBag,
@@ -23,7 +24,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { getMostExpensiveWig, getTimeRemaining } from '../utils/referral';
-import { api, applyProductOverrides, ApiError, request, type RewardView, type ServerOrder } from '../api/client';
+import { api, ApiError, request, type RewardView, type ServerOrder } from '../api/client';
 import { useSite } from '../api/SiteProvider';
 import { useModalA11y } from '../hooks/useModalA11y';
 
@@ -70,7 +71,7 @@ export const ProductShop: React.FC<ProductShopProps> = ({
 
   const { config, refreshConfig } = useSite();
   // Catalog with the owner's live price and stock changes applied
-  const products = useMemo(() => applyProductOverrides(PRODUCTS_SHOP_DATA, config), [config]);
+  const products = useCatalog();
 
   // Referral discount code state
   const [discountCodeInput, setDiscountCodeInput] = useState<string>(prefilledDiscountCode || '');

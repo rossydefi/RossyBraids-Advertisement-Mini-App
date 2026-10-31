@@ -13,7 +13,7 @@ const en = {
   navHome: 'Home',
   navBook: 'Book Appointment',
   navShop: 'Hair Care Shop',
-  navGallery: 'Before & After',
+  navGallery: 'Style Gallery',
   navRefer: 'Refer & Earn 25%',
   navBookShort: 'Book',
   navShopShort: 'Shop',

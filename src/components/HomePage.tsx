@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { Clock, MapPin, MessageCircle, Sparkles, Calendar } from 'lucide-react';
 import { useSite } from '../api/SiteProvider';
-import { BRAND_DATA, IMAGES, SERVICES_DATA } from '../data/flyerData';
+import { BRAND_DATA, SERVICES_DATA } from '../data/flyerData';
+import type { Route } from '../utils/router';
 import { useI18n } from '../i18n';
+import { HeroShowcase } from './HeroShowcase';
 import { ReviewForm } from './ReviewForm';
 import { TestimonialCarousel } from './TestimonialCarousel';
 
 interface HomePageProps {
   onBookService: (serviceId: string) => void;
   onBook: () => void;
+  onNavigate: (route: Route) => void;
 }
 
 type PriceBand = 'all' | 'under20' | 'mid' | 'over30';
@@ -18,7 +21,7 @@ const priceOf = (startingPrice?: string) => Number((startingPrice ?? '').replace
 const inBand = (price: number, band: PriceBand) =>
   band === 'all' || (band === 'under20' ? price < 20000 : band === 'mid' ? price >= 20000 && price <= 30000 : price > 30000);
 
-export const HomePage: React.FC<HomePageProps> = ({ onBookService, onBook }) => {
+export const HomePage: React.FC<HomePageProps> = ({ onBookService, onBook, onNavigate }) => {
   const { t } = useI18n();
   const { config } = useSite();
   const [band, setBand] = useState<PriceBand>('all');
@@ -42,14 +45,8 @@ export const HomePage: React.FC<HomePageProps> = ({ onBookService, onBook }) => 
 
       {/* Hero */}
       <section className="relative overflow-hidden rounded-3xl border border-[#D4AF37]/30 bg-[#1E110A]" aria-labelledby="hero-title">
-        <img
-          src={IMAGES.heroBoneStraight}
-          alt="Client with a sleek bone-straight luxury wig"
-          className="absolute inset-0 w-full h-full object-cover object-top opacity-45"
-          fetchPriority="high"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#140D08] via-[#140D08]/75 to-transparent" />
-        <div className="relative px-6 sm:px-12 py-14 sm:py-24 max-w-2xl space-y-5">
+        <HeroShowcase onNavigate={onNavigate} />
+        <div className="relative z-[5] px-6 sm:px-12 pt-14 pb-24 sm:py-24 max-w-2xl space-y-5 pointer-events-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
           <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.2em] font-semibold text-[#D4AF37]">
             <Sparkles className="w-3.5 h-3.5" aria-hidden="true" /> {t('heroKicker')}
           </span>

@@ -3,10 +3,16 @@ import React, { useId, useMemo } from 'react';
 interface RossyLogoProps {
   /** Colours of the braided mark. */
   variant?: 'gold' | 'dark' | 'white';
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  /** 'stacked': mark above the wordmark (flyer). 'inline': mark beside the wordmark (site header). */
+  layout?: 'stacked' | 'inline';
   /** Tailwind text classes for the two halves of the wordmark. Defaults suit a light background. */
   accentClass?: string;
   restClass?: string;
+  /** Optional slogan under the wordmark: a dotted leader, then the text starting under the R of BRAIDS. */
+  slogan?: string;
+  /** Tailwind classes for the slogan's size and colour. */
+  sloganClass?: string;
   className?: string;
 }
 
@@ -86,8 +92,8 @@ function braid(center: Pt[], amplitude: number, period: number) {
   return strands;
 }
 
-const MARK_PX = { sm: 64, md: 88, lg: 120, xl: 150 };
-const WORD = { sm: 'text-2xl', md: 'text-4xl', lg: 'text-5xl', xl: 'text-6xl' };
+const MARK_PX = { xs: 40, sm: 64, md: 88, lg: 120, xl: 150 };
+const WORD = { xs: 'text-base sm:text-2xl', sm: 'text-2xl', md: 'text-4xl', lg: 'text-5xl', xl: 'text-6xl' };
 
 /**
  * RossyBraids mark: the letter R woven from a three-strand braid, inside a fine ring.
@@ -96,10 +102,15 @@ const WORD = { sm: 'text-2xl', md: 'text-4xl', lg: 'text-5xl', xl: 'text-6xl' };
 export const RossyLogo: React.FC<RossyLogoProps> = ({
   variant = 'gold',
   size = 'md',
+  layout = 'stacked',
   accentClass = 'text-[#C59B27]',
   restClass = 'text-[#3D2314]',
+  slogan,
+  sloganClass = '',
   className = '',
 }) => {
+  const inline = layout === 'inline';
+  const TRACK = inline ? 'tracking-[0.08em] sm:tracking-[0.16em]' : 'tracking-[0.16em]';
   const gradientId = `rb-gold-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   const paths = useMemo(() => [...braid(rCenterline(), 4.4, 19), ...braid(rLeg(), 4.4, 19)], []);
@@ -118,7 +129,7 @@ export const RossyLogo: React.FC<RossyLogoProps> = ({
     );
 
   return (
-    <div className={`inline-flex flex-col items-center select-none ${className}`}>
+    <div className={`inline-flex select-none ${inline ? 'flex-row items-center gap-2 sm:gap-3' : 'flex-col items-center'} ${className}`}>
       <svg
         viewBox="0 0 100 100"
         width={MARK_PX[size]}
@@ -146,10 +157,36 @@ export const RossyLogo: React.FC<RossyLogoProps> = ({
         </g>
       </svg>
 
-      <h1 className={`font-cinzel font-extrabold uppercase leading-none mt-2 tracking-[0.16em] ${WORD[size]}`}>
-        <span className={accentClass}>Rossy</span>
+      <div className={inline ? 'flex flex-col' : 'contents'}>
+      {React.createElement(
+        inline ? 'div' : 'h1',
+        { className: `font-cinzel font-extrabold uppercase leading-none ${TRACK} ${inline ? '' : 'mt-2'} ${WORD[size]}` },
+        <span className={accentClass}>Rossy</span>,
         <span className={restClass}>Braids</span>
-      </h1>
+      )}
+
+      {slogan && (
+        <div className={`mt-1 sm:mt-1.5 flex w-0 min-w-full items-center whitespace-nowrap ${sloganClass}`}>
+          {/* Invisible copy of "ROSSYB" in the wordmark's type, so the slogan starts exactly under the R of BRAIDS */}
+          <div className="relative h-0 shrink-0">
+            <span
+              aria-hidden="true"
+              className={`invisible block h-0 font-cinzel font-extrabold uppercase ${TRACK} ${WORD[size]}`}
+            >
+              RossyB
+            </span>
+            <span
+              aria-hidden="true"
+              className="absolute left-0 right-3 top-0 border-t-2 border-dotted border-current"
+              style={{ maskImage: 'linear-gradient(to right, transparent, #000 45%)', WebkitMaskImage: 'linear-gradient(to right, transparent, #000 45%)' }}
+            />
+          </div>
+          <p className="font-serif-luxury italic font-semibold leading-none" style={{ letterSpacing: '0.05em' }}>
+            {slogan}
+          </p>
+        </div>
+      )}
+      </div>
     </div>
   );
 };

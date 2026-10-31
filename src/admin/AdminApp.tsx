@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { BookingsPanel } from './BookingsPanel';
+import { GalleryPanel } from './GalleryPanel';
 import { Login } from './Login';
 import { Overview } from './Overview';
 import { OrdersPanel } from './OrdersPanel';
 import { RemindersPanel } from './RemindersPanel';
 import { ReviewsPanel } from './ReviewsPanel';
 import { SettingsPanel } from './SettingsPanel';
+import { ShopPanel } from './ShopPanel';
 import { getAdminToken, setAdminToken, setUnauthorizedHandler, type Summary } from './adminApi';
 import { btn, cx } from './ui';
 
@@ -13,6 +15,8 @@ const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'bookings', label: 'Bookings' },
   { id: 'orders', label: 'Orders' },
+  { id: 'shop', label: 'Shop' },
+  { id: 'gallery', label: 'Gallery' },
   { id: 'reviews', label: 'Reviews' },
   { id: 'reminders', label: 'Reminders' },
   { id: 'settings', label: 'Settings' },
@@ -82,6 +86,8 @@ export default function AdminApp() {
             {tab === 'overview' && <Overview onSummary={handleSummary} />}
             {tab === 'bookings' && <BookingsPanel />}
             {tab === 'orders' && <OrdersPanel />}
+            {tab === 'shop' && <ShopPanel />}
+            {tab === 'gallery' && <GalleryPanel />}
             {tab === 'reviews' && <ReviewsPanel />}
             {tab === 'reminders' && <RemindersPanel />}
             {tab === 'settings' && <SettingsPanel />}

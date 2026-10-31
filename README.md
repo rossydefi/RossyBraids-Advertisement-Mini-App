@@ -3,7 +3,7 @@
 Website, booking system, shop and owner dashboard for RossyBraids (luxury braids, locs, wigs and hair care).
 
 - **Customers** (`/`): home page, live booking calendar, hair-care shop, before & after gallery, referral rewards, reviews, phone sign-in, installable PWA.
-- **Owner** (`/admin`): bookings, orders, review moderation, reminders, availability and price/stock settings, CSV export.
+- **Owner** (`/admin`): bookings, orders, review moderation, the style gallery (upload photos and videos), reminders, availability and price/stock settings, CSV export.
 - **Flyer designer** (`/flyer`): promotional flyer export (PNG, print, share).
 
 React 19 + Vite + Tailwind on the front, Express + SQLite (Node's built-in `node:sqlite`) on the back. One process serves both.
@@ -72,6 +72,9 @@ Use a host with a **persistent disk** and point `DATA_DIR` at it. The database i
 - **Prices are computed on the server** (`src/utils/pricing.ts` is shared) so a customer cannot change a total in the browser. Admin price overrides and stock counts apply on top of `src/data/flyerData.ts`.
 - **Slots** can't be double-booked (unique index per date, slot and stylist). The owner can close weekdays, block dates and cap bookings per day.
 - **Referral rewards** are issued and redeemed on the server. They are tied to the recipient's phone number, only for a first-time client, locked until the salon confirms the booking, then valid for 72 hours and usable once.
+- **Gallery**: only the owner can upload, edit or delete (Admin → Gallery); clients can only view, watch and search. Uploads are saved in `data/uploads/` (photos and videos up to 150 MB). If you sit behind nginx or another proxy, raise its upload limit (for nginx, `client_max_body_size 150m;`) or large videos will be rejected. Until the first upload, clients see the sample styles that ship with the app.
+- **Shop**: only the owner can add, edit, price or delete products (Admin → Shop); clients can browse, add to bag and order. Prices and stock are always applied on the server. Until the first product is added, clients see the sample products that ship with the app.
+- **Home page**: the hero background cycles through your gallery uploads (photos and videos) and in-stock shop products, fading automatically from one to the next.
 - **Reviews** are held until approved in `/admin`. The bundled sample testimonials are only shown until the first real review is approved.
 - **Client sign-in** is phone + SMS code, so history follows a client across devices. Bookings made on a device are also remembered locally.
 

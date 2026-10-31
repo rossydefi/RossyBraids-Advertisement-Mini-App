@@ -80,6 +80,35 @@ CREATE TABLE IF NOT EXISTS reviews (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS gallery (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  tags TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  media_type TEXT NOT NULL,
+  media_url TEXT NOT NULL,
+  before_url TEXT,
+  service_id TEXT,
+  featured INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS shop_products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  price INTEGER NOT NULL,
+  stock INTEGER,
+  in_stock INTEGER NOT NULL DEFAULT 1,
+  volume TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  benefits TEXT NOT NULL DEFAULT '[]',
+  image_url TEXT NOT NULL,
+  featured INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

@@ -46,8 +46,8 @@ export const ROUTE_META: Record<Route, { title: string; description: string }> =
     description: 'Shampoos, serums, silk accessories and luxury ready-to-wear wigs, delivered to you.',
   },
   gallery: {
-    title: 'Before & After Gallery — RossyBraids',
-    description: 'Real transformations: bone-straight wigs, locs, boho braids and natural twists.',
+    title: 'Style Gallery — RossyBraids',
+    description: 'Photos and videos of real hair styled by RossyBraids: wigs, locs, boho braids and natural twists.',
   },
   flyer: { title: 'Ad Flyer Designer — RossyBraids', description: 'Design and download RossyBraids promotional flyers.' },
   referral: { title: 'Refer & Earn — RossyBraids', description: 'Refer a friend and both earn 25% off our flagship wig.' },

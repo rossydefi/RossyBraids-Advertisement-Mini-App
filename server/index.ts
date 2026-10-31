@@ -6,6 +6,7 @@ import path from 'node:path';
 import { admin } from './admin';
 import { api, paystackWebhook } from './api';
 import { config } from './config';
+import { galleryPublic } from './gallery';
 import { startReminderJob } from './reminders';
 import { HttpError } from './util';
 
@@ -30,6 +31,7 @@ app.use('/api', (req, res, next) => (req.method === 'POST' && req.path === '/boo
 
 app.use('/uploads', express.static(config.uploadsDir, { maxAge: '7d', index: false, setHeaders: (res) => res.setHeader('Content-Disposition', 'inline') }));
 app.use('/api/admin', admin);
+app.use('/api/gallery', galleryPublic);
 app.use('/api', api);
 app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Not found')));
 

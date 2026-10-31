@@ -5,7 +5,7 @@ import express, { Router } from 'express';
 import { ADD_ONS_DATA, LOCATION_TIERS, SERVICES_DATA, STYLISTS, TIME_SLOTS } from '../src/data/flyerData';
 import { computeBookingPrice } from '../src/utils/pricing';
 import { hashOtp, normalizePhone, rateLimit, requireClient, signToken } from './auth';
-import { getProducts } from './catalog';
+import { getCustomProducts, getProducts, reserveStock } from './catalog';
 import { config } from './config';
 import { all, get, getSettings, run, setSetting, transaction } from './db';
 import { notifyOwner, sendSms } from './notify';
@@ -65,6 +65,8 @@ api.get('/config', (_req, res) => {
     requireDeposit: s.requireDeposit && paymentsEnabled(),
     paymentsEnabled: paymentsEnabled(),
     products: getProducts().map((p) => ({ id: p.id, price: p.price, formattedPrice: p.formattedPrice, inStock: p.inStock })),
+    // Present once the owner has uploaded her own products; the shop then shows these instead of the samples.
+    catalog: getCustomProducts().length ? getCustomProducts() : undefined,
   });
 });
 
@@ -290,19 +292,8 @@ api.post('/orders', rateLimit('order', 20, 15 * 60_000), async (req, res) => {
       run('UPDATE rewards SET used_at = ? WHERE code = ?', createdAt, reward.code);
     }
 
-    // Decrement tracked stock; flip to out-of-stock at zero.
-    const settings = getSettings();
-    let changed = false;
-    for (const line of lines) {
-      const o = settings.productOverrides[line.productId];
-      if (typeof o?.stock === 'number') {
-        if (o.stock < line.quantity) throw new HttpError(409, `Only ${o.stock} of ${line.productName} left in stock`);
-        o.stock -= line.quantity;
-        if (o.stock === 0) o.inStock = false;
-        changed = true;
-      }
-    }
-    if (changed) setSetting('productOverrides', settings.productOverrides);
+    // Decrement tracked stock (owner products and sample overrides alike).
+    reserveStock(lines);
 
     run(
       `INSERT INTO orders(id, customer_name, customer_phone, delivery_address, items, subtotal, discount, discount_code, total, created_at)

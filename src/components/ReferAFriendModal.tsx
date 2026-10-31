@@ -26,8 +26,8 @@ import {
   saveReferralProfile,
   getTimeRemaining,
 } from '../utils/referral';
-import { PRODUCTS_SHOP_DATA } from '../data/flyerData';
-import { api, applyProductOverrides, ApiError, type RewardView } from '../api/client';
+import { useCatalog } from '../hooks/useCatalog';
+import { api, ApiError, type RewardView } from '../api/client';
 import { useSite } from '../api/SiteProvider';
 import { useModalA11y } from '../hooks/useModalA11y';
 
@@ -71,8 +71,9 @@ export const ReferAFriendModal: React.FC<ReferAFriendModalProps> = ({
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpBusy, setOtpBusy] = useState<boolean>(false);
 
+  const catalog = useCatalog();
   // Dynamically evaluate the current most expensive wig (including admin price changes)
-  const mostExpensiveWig = getMostExpensiveWig(applyProductOverrides(PRODUCTS_SHOP_DATA, config));
+  const mostExpensiveWig = getMostExpensiveWig(catalog);
   const discountSavings = Math.round(mostExpensiveWig.price * 0.25);
   const discountedPrice = mostExpensiveWig.price - discountSavings;
 

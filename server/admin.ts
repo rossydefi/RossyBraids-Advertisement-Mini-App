@@ -4,6 +4,9 @@ import { getDueMaintenanceNotifications } from '../src/utils/maintenance';
 import { normalizePhone, rateLimit, requireAdmin, safeEqual, signToken } from './auth';
 import { bookingView, orderView } from './api';
 import { config } from './config';
+import { restoreStock } from './catalog';
+import { galleryAdmin } from './gallery';
+import { shopAdmin } from './shop';
 import { all, get, getSettings, run, setSetting, transaction, type Settings } from './db';
 import { sendSms } from './notify';
 import { activateRewardsForBooking } from './rewards';
@@ -17,6 +20,9 @@ admin.post('/login', rateLimit('admin-login', 8, 15 * 60_000), (req, res) => {
 });
 
 admin.use(requireAdmin);
+
+admin.use('/gallery', galleryAdmin);
+admin.use('/shop', shopAdmin);
 
 const tomorrow = () => new Date(Date.parse(`${lagosToday()}T00:00:00Z`) + 86400_000).toISOString().slice(0, 10);
 
@@ -112,15 +118,7 @@ admin.patch('/orders/:id', (req, res) => {
     run("UPDATE orders SET status = ?, payment_status = CASE WHEN ? = 'paid' THEN 'paid' ELSE payment_status END WHERE id = ?", status, status, row.id);
     if (status === 'cancelled' && row.status !== 'cancelled') {
       if (row.discount_code) run('UPDATE rewards SET used_at = NULL WHERE code = ?', row.discount_code);
-      const settings = getSettings();
-      for (const item of JSON.parse(row.items) as { productId: string; quantity: number }[]) {
-        const o = settings.productOverrides[item.productId];
-        if (typeof o?.stock === 'number') {
-          o.stock += item.quantity;
-          o.inStock = true;
-        }
-      }
-      setSetting('productOverrides', settings.productOverrides);
+      restoreStock(JSON.parse(row.items) as { productId: string; quantity: number }[]);
     }
   });
   res.json(orderView(get('SELECT * FROM orders WHERE id = ?', row.id)));
