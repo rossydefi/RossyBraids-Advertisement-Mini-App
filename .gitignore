@@ -8,5 +8,5 @@ coverage/
 !.env.example
 
 # local server data
-data/
+/data/
 .env

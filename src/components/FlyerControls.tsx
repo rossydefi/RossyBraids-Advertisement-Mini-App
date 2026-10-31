@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FlyerFormat, FlyerTheme } from '../types';
+import { FLYER_THEME_OPTIONS } from '../data/flyerThemes';
 import { BRAND_DATA } from '../data/flyerData';
 import { toPng } from 'html-to-image';
 import confetti from 'canvas-confetti';
@@ -24,14 +25,6 @@ interface FlyerControlsProps {
   setTheme: (theme: FlyerTheme) => void;
   flyerRef: React.RefObject<HTMLDivElement | null>;
 }
-
-const THEME_OPTIONS: { id: FlyerTheme; label: string; swatch: string; active: string }[] = [
-  { id: 'nude-luxury', label: 'Chic Nude', swatch: 'bg-[#EADBC8]', active: 'bg-[#EADBC8] text-[#2A1810] font-bold shadow-sm' },
-  { id: 'mocha-velvet', label: 'Mocha Velvet', swatch: 'bg-[#3D2314]', active: 'bg-[#3D2314] text-[#F5E6A3] font-bold border border-[#D4AF37]/50 shadow-sm' },
-  { id: 'warm-ivory', label: 'Warm Ivory', swatch: 'bg-white', active: 'bg-white text-[#2A1810] font-bold shadow-sm' },
-  { id: 'rose-blush', label: 'Rose Blush', swatch: 'bg-[#F4D3CB]', active: 'bg-[#F4D3CB] text-[#3A1F1B] font-bold shadow-sm' },
-  { id: 'noir-gold', label: 'Noir Gold', swatch: 'bg-[#0B0B0B]', active: 'bg-[#0B0B0B] text-[#E6CA65] font-bold border border-[#D4AF37]/60 shadow-sm' },
-];
 
 export const FlyerControls: React.FC<FlyerControlsProps> = ({
   format,
@@ -123,7 +116,7 @@ CONTACT & BOOKINGS:
 
   return (
     <div className="no-print w-full max-w-5xl mx-auto px-4 py-3 my-4 bg-[#1E110A]/80 backdrop-blur-md rounded-xl border border-[#D4AF37]/30 shadow-xl text-[#F5EFEB]">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         {/* Aspect Ratio / Format Switcher */}
         <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
           <span className="text-[11px] uppercase tracking-wider text-[#DFCEBC] font-semibold flex items-center gap-1">
@@ -167,19 +160,19 @@ CONTACT & BOOKINGS:
         </div>
 
         {/* Theme Palette Switcher */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+        <div className="order-last flex flex-col sm:flex-row items-center gap-2 w-full md:justify-center">
           <span className="text-[11px] uppercase tracking-wider text-[#DFCEBC] font-semibold flex items-center gap-1">
             <Palette className="w-3.5 h-3.5 text-[#D4AF37]" /> Palette:
           </span>
           <div role="group" aria-label="Flyer palette" className="flex flex-wrap items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/10 w-full sm:w-auto justify-center">
-            {THEME_OPTIONS.map((opt) => (
+            {FLYER_THEME_OPTIONS.map((opt) => (
               <button
                 key={opt.id}
                 type="button"
                 onClick={() => setTheme(opt.id)}
                 aria-pressed={theme === opt.id}
                 className={`px-2.5 py-1.5 rounded-md text-xs font-medium flex items-center gap-1.5 transition-all cursor-pointer ${
-                  theme === opt.id ? opt.active : 'text-[#DFCEBC] hover:text-white'
+                  theme === opt.id ? 'bg-white/15 ring-1 ring-[#D4AF37] text-white font-bold' : 'text-[#DFCEBC] hover:text-white hover:bg-white/5'
                 }`}
               >
                 <span className={`w-2.5 h-2.5 rounded-full border border-[#D4AF37] ${opt.swatch}`} aria-hidden="true" />
